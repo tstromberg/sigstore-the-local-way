@@ -4,7 +4,11 @@ sigstore isn't scary.
 
 This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions. 
 
-This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way), but avoids using external infrastructure (GCP, LetsEncrypt), etc. As the intention is not a production-ready environment, we will store most data within the users home directory.
+This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way) with the following changes:
+
+* Cross-platform (Linux, OpenBSD, macOS)
+* Local only - does not assume use of GCP or other Cloud providers
+* Minimal use of root privileges
 
 ## Environment
 
@@ -78,7 +82,7 @@ doas bash createdb.sh
 Start rekor:
 
 ```shell
-rekor-server serve --rekor_server.address=0.0.0.0 --trillian_log_server.port=8091 --enable_retrieve_api=false 1
+$HOME/go/bin/rekor-server serve --rekor_server.address=0.0.0.0 --trillian_log_server.port=8091 --enable_retrieve_api=false 1
 ```
 
 **TIP: If rekor shows the error 'Table 'test.Trees' doesn't exist', run the createdb.sh script again as it may have failed**
@@ -87,7 +91,7 @@ Test rekor:
 
 ```shell
 cd $HOME/sigstore-local/src/rekor
-rekor-cli upload --artifact tests/test_file.txt --public-key tests/test_public_key.key --signature tests/test_file.sig --rekor_server http://127.0.0.1:3000
+$HOME/go/bin/rekor-cli upload --artifact tests/test_file.txt --public-key tests/test_public_key.key --signature tests/test_file.sig --rekor_server http://127.0.0.1:3000
 ```
 
 If it works, the following will be output:
@@ -191,10 +195,42 @@ Please set the pin to `2324` or at least memorize the PIN.
 Configure OpenSC:
 
 * Linux: `export PKCS11_MOD=/usr/lib/softhsm/libsofthsm2.so`
-* OpenBSD: `export PKCS11_MOD=/usr/local/lib/softhsm/libsofthsm2.so`
+* (FreeBSD|OpenBSD): `export PKCS11_MOD=/usr/local/lib/softhsm/libsofthsm2.so`
 
-Then use it to create a CA cert:
+Use OpenSC to create a CA cert:
 
-`pkcs11-tool --module $PKCS_MOD --login --login-type user --keypairgen --id 1 --label FulcioCA --key-type EC:secp384`
+`pkcs11-tool --module=$PKCS11_MOD --login --login-type user --keypairgen --id 1 --label PKCS11CA --key-type EC:secp384`
+
+**NOTE: Older versions of Fulcio used FulcioCA, but newer ones use PKCS11CA**
 
 ## Fulcio
+
+On most platforms, install the latest Fulcio using:
+
+```shell
+go install github.com/sigstore/fulcio@latest
+```
+
+OpenBSD is temporarily an exception, as you'll need to override two of the dependencies due to out-of-date and incompatible components:
+
+```
+go mod edit -replace=github.com/ThalesIgnite/crypto11=github.com/tstromberg/crypto11@v1.2.6-0.20220126194112-d1d20b7b79b6 
+go mod edit -replace=github.com/containers/ocicrypt=github.com/tstromberg/ocicrypt@v1.1.3-0.20220126200830-4f5e8d1378f0  
+go mod tidy
+go install .
+```
+
+Before we run Fulcio, we need to create a configuration file for the pkcs11 library:
+
+```shell
+cd $HOME/sigstore-local
+mkdir config
+echo "{ 'Path': '$PKCS11_MOD', 'TokenLabel': 'fulcio', 'Pin': '1234' }" > config/crypto11.conf
+```
+
+Now create a CA:
+
+```shell
+fulcio createca --org=acme --country=USA --locality=Anytown --province=AnyPlace --postal-code=ABCDEF --street-address=123 Main St --hsm-caroot-id 1 --out fulcio-root.pem
+```
+
