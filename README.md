@@ -16,11 +16,11 @@ As part of this tutorial, you will be starting a lot of daemons in the foregroun
 
 ## Installation of non-sigstore prerequisites
 
-* OpenBSD: `doas pkg_add mariadb-server git redis go softhsm2`
-* Debian: `sudo apt-get install -y mariadb-server git redis-server softhsm2`
-* Fedora: `sudo dnf install madiadb-server git redis softhsm'
-* FreeBSD: `doas pkg install mariadb105-server git redis softhsm2`
-* macOS: `sudo brew install mariadb redis softhsm`
+* OpenBSD: `doas pkg_add mariadb-server git redis go softhsm2 opensc`
+* Debian: `sudo apt-get install -y mariadb-server git redis-server softhsm2 opensc`
+* Fedora: `sudo dnf install madiadb-server git redis softhsm opensc'
+* FreeBSD: `doas pkg install mariadb105-server git redis softhsm2 opensc`
+* macOS: `sudo brew install mariadb redis softhsm opensc`
 
 Verify that the Go version in your path is v1.16 or higher:
 
@@ -180,9 +180,21 @@ env GITHUB_CLIENT_ID=<id> GITHUB_CLIENT_SECRET=<secret> dex serve dex-config.yam
 
 ## SoftHSM
 
-SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. We're going to stick with the defaults, which will store tokens in `$HOME/.config/softhsm2/tokens`:
+SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. By default, `$HOME/.config/softhsm2/tokens` is used as the store. This will create your first token:
 
-`pkcs11-tool --module /usr/local/lib/softhsm/libsofthsm2.so --login --login-type user --keypairgen --id 1 --label FulcioCA --key-type EC:secp384`
+`softhsm2-util --init-token --free --label fulcio`
 
+Please set the pin to `2324` or at least memorize the PIN.
+
+## OpenSC
+
+Configure OpenSC:
+
+* Linux: `export PKCS11_MOD=/usr/lib/softhsm/libsofthsm2.so`
+* OpenBSD: `export PKCS11_MOD=/usr/local/lib/softhsm/libsofthsm2.so`
+
+Then use it to create a CA cert:
+
+`pkcs11-tool --module $PKCS_MOD --login --login-type user --keypairgen --id 1 --label FulcioCA --key-type EC:secp384`
 
 ## Fulcio
