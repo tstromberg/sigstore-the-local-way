@@ -180,6 +180,9 @@ env GITHUB_CLIENT_ID=<id> GITHUB_CLIENT_SECRET=<secret> dex serve dex-config.yam
 
 ## SoftHSM
 
-SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. 
+SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. We're going to stick with the defaults, which will store tokens in `$HOME/.config/softhsm2/tokens`:
+
+`pkcs11-tool --module /usr/local/lib/softhsm/libsofthsm2.so --login --login-type user --keypairgen --id 1 --label FulcioCA --key-type EC:secp384`
+
 
 ## Fulcio
