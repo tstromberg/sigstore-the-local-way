@@ -75,3 +75,110 @@ cd scripts
 doas bash createdb.sh
 ```
 
+Start rekor:
+
+```shell
+rekor-server serve --rekor_server.address=0.0.0.0 --trillian_log_server.port=8091 --enable_retrieve_api=false 1
+```
+
+**TIP: If rekor shows the error 'Table 'test.Trees' doesn't exist', run the createdb.sh script again as it may have failed**
+
+Test rekor:
+
+```shell
+cd $HOME/sigstore-local/src/rekor
+rekor-cli upload --artifact tests/test_file.txt --public-key tests/test_public_key.key --signature tests/test_file.sig --rekor_server http://127.0.0.1:3000
+```
+
+If it works, the following will be output:
+
+`Created entry at index 0, available at: http://127.0.0.1:3000/api/v1/log/entries/d2f305428d7c222d7b77f56453dd4b6e6851752ecacc78e5992779c8f9b61dd9`
+
+Inspect the rekor record using:
+
+```shell
+curl -s http://127.0.0.1:3000/api/v1/log/entries/d2f305428d7c222d7b77f56453dd4b6e6851752ecacc78e5992779c8f9b61dd9 | jq
+```
+
+## Dex
+
+Dex is a federated OpenID Connect Provider, which connects OpenID identities together from multiple providers to drive authentication for other apps.
+
+```shell
+cd $HOME/sigstore-local/src
+git clone https://github.com/dexidp/dex.git
+cd dex
+gmake build
+```
+
+For this demonstration, we're going to use GitHub to authenticate requests, so create a test token at 
+https://github.com/settings/applications/new
+
+For the Homepage URL, use `http://localhost:5556/` and for the Authorization callback URL, use `http://localhost:5556/auth/callback`
+
+Then place the following in $HOME/sigstore-local/dex-config.yaml:
+
+```yaml
+issuer: http://127.0.0.1
+
+storage:
+  type: sqlite3
+  config:
+    file: ./dex.db
+web:
+  http: 0.0.0.0:5556
+frontend:
+  issuer: sigstore
+  theme: light
+
+# Configuration for telemetry
+telemetry:
+  http: 0.0.0.0:5558
+
+# Options for controlling the logger.
+logger:
+  level: "debug"
+  format: "json"
+
+# Default values shown below
+oauth2:
+  responseTypes: [ "code" ]
+  skipApprovalScreen: false
+  alwaysShowLoginScreen: true
+
+staticClients:
+  - id: sigstore
+    public: true
+    name: 'sigstore'
+    redirectURIs:
+    - 'http://localhost:5556/auth/callback'
+
+connectors:
+#- type: google
+#  id: google-sigstore-test
+#  name: Google
+#  config:
+#    clientID: $GOOGLE_CLIENT_ID
+#    clientSecret: $GOOGLE_CLIENT_SECRET
+#    redirectURI: https://${DOMAIN}/auth/callback
+
+- type: github
+  id: github-sigstore-test
+  name: GitHub
+  config:
+     clientID: $GITHUB_CLIENT_ID
+     clientSecret: $GITHUB_CLIENT_SECRET
+     redirectURI: http://127.0.0.1:5556/dex/callback
+```
+
+Then run dex:
+
+```shell
+cd $HOME/sigstore-local
+env GITHUB_CLIENT_ID=<id> GITHUB_CLIENT_SECRET=<secret> dex serve dex-config.yaml
+```
+
+## SoftHSM
+
+SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module.
+
