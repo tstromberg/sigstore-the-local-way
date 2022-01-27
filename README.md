@@ -4,13 +4,13 @@ sigstore isn't scary.
 
 This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions. 
 
-This tutorial is based on [https://github.com/lukehinds/sigstore-the-hard-way](Sigstore the Hard Way), but avoids using external infrastructure (GCP, LetsEncrypt), etc. As the intention is not a production-ready environment, we will store most data within the users home directory.
+This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way), but avoids using external infrastructure (GCP, LetsEncrypt), etc. As the intention is not a production-ready environment, we will store most data within the users home directory.
 
 ## Environment
 
-This tutorial was developed on [https://openbsd.org/](OpenBSD), but it is intended to be cross-platform and executable using shells other than bash. 
+This tutorial was initially developed on [https://openbsd.org/](OpenBSD), and is designed to work across a wide array of operating-systems and shells.
 
-This tutorial uses ocassionally refers to `doas`, a secure drop-in replacement for `sudo`. If it is not installed on your host, feel free to type `sudo` instead, install doas, or run `alias doas=sudo`.
+It does ocassionally refers to `doas`, a secure drop-in replacement for `sudo`. If it is not installed on your host, feel free to type `sudo` instead, install doas, or run `alias doas=sudo`.
 
 As part of this tutorial, you will be starting a lot of daemons in the foreground. I highly recommend using a terminal environment that allows multiple sessions, such as tmux or screen.
 
@@ -19,7 +19,7 @@ As part of this tutorial, you will be starting a lot of daemons in the foregroun
 * OpenBSD: `doas pkg_add mariadb-server git redis go softhsm2`
 * Debian: `sudo apt-get install -y mariadb-server git redis-server softhsm2`
 * Fedora: `sudo dnf install madiadb-server git redis softhsm'
-* FreeBSD: `sudo pkg install mariadb105-server git redis softhsm2`
+* FreeBSD: `doas pkg install mariadb105-server git redis softhsm2`
 * macOS: `sudo brew install mariadb redis softhsm`
 
 Verify that the Go version in your path is v1.16 or higher:
@@ -180,5 +180,6 @@ env GITHUB_CLIENT_ID=<id> GITHUB_CLIENT_SECRET=<secret> dex serve dex-config.yam
 
 ## SoftHSM
 
-SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module.
+SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. 
 
+## Fulcio
