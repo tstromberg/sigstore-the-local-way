@@ -9,6 +9,7 @@ This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/s
 * Cross-platform (Linux, OpenBSD, macOS)
 * Local only - does not assume use of GCP or other Cloud providers
 * Minimal use of root privileges
+* Skips unneccessary steps for local testing, such as DNS and load balancing
 
 ## Environment
 
@@ -233,4 +234,27 @@ Now create a CA:
 ```shell
 fulcio createca --org=acme --country=USA --locality=Anytown --province=AnyPlace --postal-code=ABCDEF --street-address=123 Main St --hsm-caroot-id 1 --out fulcio-root.pem
 ```
+
+Create a configuration file for Fulcio in `$HOME/sigstore-local/config/fulcio.json`:
+
+```shell
+{
+  "OIDCIssuers": {
+    "https://accounts.google.com": {
+      "IssuerURL": "https://accounts.google.com",
+      "ClientID": "sigstore",
+      "Type": "email"
+    },
+    "http://127.0.0.1:5556": {
+      "IssuerURL": "http://127.0.0.1:5556",
+      "ClientID": "sigstore",
+      "Type": "email"
+    }
+  }
+}
+```
+
+Now start Fulcio:
+
+`fulcio serve --config-path=config/fulcio.json --ca=pkcs11ca --hsm-caroot-id=1 --ct-log-url=http://localhost:6105/sigstore --host=0.0.0.0 --port=5000`
 
