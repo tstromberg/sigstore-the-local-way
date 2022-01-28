@@ -6,8 +6,8 @@ This is a tutorial for setting up sigstore infrastructure locally, with a focus 
 
 This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way) with the following changes:
 
-* Aims for simlpicity: Skips or combines unneccessary steps when possible, such as omitting DNS configuration
-* Cross-platform (Linux, OpenBSD, macOS)
+* Simpler: Skips or combines unneccessary steps when possible, such as omitting DNS configuration
+* Cross-platform (Linux, OpenBSD, macOS, etc)
 * Local only - does not use of GCP or other Cloud providers
 * Minimal use of root privileges
 
@@ -42,23 +42,6 @@ While Sigstore can use multiple database backends, this tutorial uses MariaDB. A
 * Fedora: TODO
 * FreeBSD: TODO
 * macOS: `sudo brew services start mariadb && sudo mysql_secure_installation`
-
-## Trillian
-
-Trillian is an append-only log for storing records. To install it:
-
-```
-go install github.com/google/trillian/cmd/trillian_log_server@latest 
-go install github.com/google/trillian/cmd/trillian_log_signer@latest 
-```
-
-Trillian has two daemons, first is the log server:
-
-`trillian_log_server -http_endpoint=localhost:8090 -rpc_endpoint=localhost:8091 --logtostderr`
-
-Then is the log signer:
-
-`trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8190 -rpc_endpoint=localhost:8191  --batch_size=1000 --sequencer_guard_window=0`
 
 ## Rekor
 
@@ -264,25 +247,107 @@ You should see a message similar to:
 
 If you do, then grab yourself some ice cream and party! 🎉 Congratulations on making it this far.
 
-## Certificate Transparency Log
+## Trillian
 
-TBD. See https://github.com/lukehinds/sigstore-the-hard-way/blob/main/docs/07-certifcate-transparency.md for the long version.
+Trillian is an append-only log for storing records. To install it:
 
+```
+go install github.com/google/trillian/cmd/trillian_log_server@latest 
+go install github.com/google/trillian/cmd/trillian_log_signer@latest 
+go install github.com/google/trillian/cmd/createtree@latest
+```
+
+Trillian has two daemons, first is the log server:
+
+`$HOME/go/bin/trillian_log_server -http_endpoint=localhost:8090 -rpc_endpoint=localhost:8091 --logtostderr`
+
+Then is the log signer:
+
+`$HOME/go/bin/trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8190 -rpc_endpoint=localhost:8191  --batch_size=1000 --sequencer_guard_window=0`
+
+
+## Certificate Transparency Server
+
+`go install github.com/google/certificate-transparency-go/trillian/ctfe/ct_server@latest`
+
+Next we need to setup a private key. Remember the passphrase you give in the second part as you will need it.
+
+```
+cd $HOME/sigstore-local
+openssl ecparam -genkey -name prime256v1 -noout -out unenc.key
+openssl ec -in unenc.key -out privkey.pem -des
+rm unenc.key
+```
+
+Next, we'll talk to the trillian_log_server we just stood up to grab a log ID:
+
+`$HOME/go/bin/createtree --admin_server localhost:8091`
+
+This command will output a long log ID number, which you will momentarily.
+
+Populate `$HOME/sigstore-local/ct.cfg`, replacing <Log ID number> and <passphrase>:
+
+```
+config {
+  log_id: <Log ID number>
+  prefix: "sigstore"
+  roots_pem_file: "./fulcio-root.pem"
+  private_key: {
+    [type.googleapis.com/keyspb.PEMKeyFile] {
+       path: "./privkey.pem"
+       password: "<passphrase>"
+    }
+  }
+}
+```
+
+Next, start the certificate transparency server:
+  
+`ct_server -logtostderr -log_config ./ct.cfg -log_rpc_server localhost:8091 -http_endpoint 0.0.0.0:6105`
+  
+If it's successful, the output will look like:
+  
+```
+I0128 11:42:16.401794   65425 main.go:121] **** CT HTTP Server Starting ****
+I0128 11:42:16.401907   65425 main.go:174] Using regular DNS resolver
+I0128 11:42:16.401915   65425 main.go:181] Dialling backend: name:"default" backend_spec:"localhost:8091"
+I0128 11:42:16.510549   65425 main.go:306] Enabling quota for requesting IP
+I0128 11:42:16.510562   65425 main.go:316] Enabling quota for intermediate certificates
+I0128 11:42:16.511090   65425 instance.go:85] Start internal get-sth operations on sigstore (8494167753837750461)
+```
+  
+If not, chances are that you typo'd the log_id or password. :) 
+  
 ## Registry
+  
+While we could feasibly use any container registry, themeatically, we're going to run our own local registry:
 
-TBD. See https://github.com/lukehinds/sigstore-the-hard-way/blob/main/docs/08-configure-registry.md
+`go install github.com/google/go-containerregistry/cmd/registry@latest`
+  
+And run our local registry on port 1338 (no flags required):
+  
+`$HOME/go/bin/registry`
+  
+Then we can push a test image to the registry using `ko`:
+  
+```
+cd $HOME/sigstore-local/src/rekor/cmd
+KO_DOCKER_REPO=127.0.0.1:1338/local ko publish ./rekor-cli
+```
+  
+## Sign things using cosign!
 
-## Cosign
+**NOTE: This step is still under development**
+  
+Install the latest release:
+  
+`go install github.com/sigstore/cosign/cmd/cosign@latest``
+  
+Sign the container you published:
 
-TBD. See https://github.com/lukehinds/sigstore-the-hard-way/blob/main/docs/09-cosign.md
+COSIGN_EXPERIMENTAL=1 cosign sign --oidc-issuer "https://oauth2.example.com/auth" --fulcio-url "https://fulcio.example.com" --rekor-url "https://rekor.example.com" 127.0.0.1:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest
 
-## Signing a container
-
-TBD. See https://github.com/lukehinds/sigstore-the-hard-way/blob/main/docs/10-sign-container.md
-
-
-
-
-
-
-
+Sign an arbitrary tarball:
+  
+Verify signatures
+  
