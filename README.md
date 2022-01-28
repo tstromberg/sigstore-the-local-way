@@ -6,10 +6,10 @@ This is a tutorial for setting up sigstore infrastructure locally, with a focus 
 
 This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way) with the following changes:
 
+* Aims for simlpicity: Skips or combines unneccessary steps when possible, such as omitting DNS configuration
 * Cross-platform (Linux, OpenBSD, macOS)
-* Local only - does not assume use of GCP or other Cloud providers
+* Local only - does not use of GCP or other Cloud providers
 * Minimal use of root privileges
-* Skips unneccessary steps for local testing, such as DNS and load balancing
 
 ## Environment
 
@@ -257,4 +257,32 @@ Create a configuration file for Fulcio in `$HOME/sigstore-local/config/fulcio.js
 Now start Fulcio:
 
 `fulcio serve --config-path=config/fulcio.json --ca=pkcs11ca --hsm-caroot-id=1 --ct-log-url=http://localhost:6105/sigstore --host=0.0.0.0 --port=5000`
+
+You should see a message similar to:
+
+`2022-01-27T16:35:11.359-0800	INFO	app/serve.go:173	0.0.0.0:5000`
+
+If you do, then grab yourself some ice cream and party! 🎉 Congratulations on making it this far.
+
+## Certificate Transparency Log
+
+TBD. See https://github.com/lukehinds/sigstore-the-hard-way/blob/main/docs/07-certifcate-transparency.md for the long version.
+
+## Registry
+
+TBD. See https://github.com/lukehinds/sigstore-the-hard-way/blob/main/docs/08-configure-registry.md
+
+## Cosign
+
+TBD. See https://github.com/lukehinds/sigstore-the-hard-way/blob/main/docs/09-cosign.md
+
+## Signing a container
+
+TBD. See https://github.com/lukehinds/sigstore-the-hard-way/blob/main/docs/10-sign-container.md
+
+
+
+
+
+
 
