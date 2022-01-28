@@ -66,7 +66,7 @@ doas bash createdb.sh
 Start rekor:
 
 ```shell
-$HOME/go/bin/rekor-server serve --rekor_server.address=0.0.0.0 --trillian_log_server.port=8091 --enable_retrieve_api=false 1
+$HOME/go/bin/rekor-server serve --rekor_server.address=0.0.0.0 --trillian_log_server.port=8091 --enable_retrieve_api=false
 ```
 
 **TIP: If rekor shows the error 'Table 'test.Trees' doesn't exist', run the createdb.sh script again as it may have failed**
@@ -90,7 +90,7 @@ curl -s http://127.0.0.1:3000/api/v1/log/entries/d2f305428d7c222d7b77f56453dd4b6
 
 ## Dex
 
-Dex is a federated OpenID Connect Provider, which connects OpenID identities together from multiple providers to drive authentication for other apps.
+Dex is a federated OpenID Connect Provider, which connects OpenID identities together from multiple providers to drive authentication for other apps. It will be your OIDC issuer:
 
 ```shell
 cd $HOME/sigstore-local/src
@@ -341,13 +341,17 @@ KO_DOCKER_REPO=127.0.0.1:1338/local ko publish ./rekor-cli
   
 Install the latest release:
   
-`go install github.com/sigstore/cosign/cmd/cosign@latest``
+`go install github.com/sigstore/cosign/cmd/cosign@latest`
   
 Sign the container you published:
 
-COSIGN_EXPERIMENTAL=1 cosign sign --oidc-issuer "https://oauth2.example.com/auth" --fulcio-url "https://fulcio.example.com" --rekor-url "https://rekor.example.com" 127.0.0.1:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest
+`COSIGN_EXPERIMENTAL=1 cosign sign --oidc-issuer "http://127.0.0.1:5556/auth" --fulcio-url "http://127.0.0.1:5000" --rekor-url "http://127.0.0.1:3000" 127.0.0.1:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest`
 
 Sign an arbitrary tarball:
   
+TBD
+  
 Verify signatures
+  
+TBD
   
