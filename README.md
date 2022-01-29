@@ -1,5 +1,7 @@
 # sigstore-the-local-way
 
+**NOTE: This tutorial is a work-in-progress: Please do not expect it to work yet. PR's welcome**
+
 sigstore isn't scary.
 
 This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions. 
@@ -23,9 +25,9 @@ As part of this tutorial, you will be starting a lot of daemons in the foregroun
 
 * OpenBSD: `doas pkg_add mariadb-server git redis go softhsm2 opensc`
 * Debian: `sudo apt-get install -y mariadb-server git redis-server softhsm2 opensc`
-* Fedora: `sudo dnf install madiadb-server git redis softhsm opensc'
+* Fedora: `sudo dnf install madiadb-server git redis softhsm opensc`
 * FreeBSD: `doas pkg install mariadb105-server git redis softhsm2 opensc`
-* macOS: `sudo brew install mariadb redis softhsm opensc`
+* macOS: `brew install mariadb redis softhsm opensc`
 
 Verify that the Go version in your path is v1.16 or higher:
 
@@ -42,6 +44,26 @@ While Sigstore can use multiple database backends, this tutorial uses MariaDB. A
 * Fedora: TODO
 * FreeBSD: TODO
 * macOS: `sudo brew services start mariadb && sudo mysql_secure_installation`
+
+
+## Trillian
+
+Trillian is an append-only log for storing records. To install it:
+
+```
+go install github.com/google/trillian/cmd/trillian_log_server@latest 
+go install github.com/google/trillian/cmd/trillian_log_signer@latest 
+go install github.com/google/trillian/cmd/createtree@latest
+```
+
+Trillian has two daemons, first is the log server:
+
+`$HOME/go/bin/trillian_log_server -http_endpoint=localhost:8090 -rpc_endpoint=localhost:8091 --logtostderr`
+
+Then is the log signer:
+
+`$HOME/go/bin/trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8190 -rpc_endpoint=localhost:8191  --batch_size=1000 --sequencer_guard_window=0`
+
 
 ## Rekor
 
@@ -60,8 +82,10 @@ Drop and create a 'test' database with a username of `test` and a password of `z
 
 ```shell
 cd scripts
-doas bash createdb.sh
+bash createdb.sh
 ```
+
+(If MySQL asks for a root password, you can try running the script as root)
 
 Start rekor:
 
@@ -90,13 +114,14 @@ curl -s http://127.0.0.1:3000/api/v1/log/entries/d2f305428d7c222d7b77f56453dd4b6
 
 ## Dex
 
-Dex is a federated OpenID Connect Provider, which connects OpenID identities together from multiple providers to drive authentication for other apps. It will be your OIDC issuer:
-
+Dex is a federated OpenID Connect Provider, which connects OpenID identities together from multiple providers to drive authentication for other apps. Dex will serve as your OIDC issuer. Unfortunately, Dex doesn't support `go install` so you need to build it manually:
+]
 ```shell
 cd $HOME/sigstore-local/src
 git clone https://github.com/dexidp/dex.git
 cd dex
-gmake build
+gmake build || make build
+cp bin/dex $HOME/go/bin
 ```
 
 For this demonstration, we're going to use GitHub to authenticate requests, so create a test token at 
@@ -104,9 +129,10 @@ https://github.com/settings/applications/new
 
 For the Homepage URL, use `http://localhost:5556/` and for the Authorization callback URL, use `http://localhost:5556/auth/callback`
 
-Then place the following in $HOME/sigstore-local/dex-config.yaml:
+Run this to populate the Dex configuration:
 
 ```yaml
+env GITHUB_CLIENT_ID=<your ID> GITHUB_CLIENT_SECRET=<your secret> printf "\
 issuer: http://127.0.0.1
 
 storage:
@@ -148,7 +174,7 @@ connectors:
 #  config:
 #    clientID: $GOOGLE_CLIENT_ID
 #    clientSecret: $GOOGLE_CLIENT_SECRET
-#    redirectURI: https://${DOMAIN}/auth/callback
+#    redirectURI: https://127.0.0.1:5556/auth/callback
 
 - type: github
   id: github-sigstore-test
@@ -157,20 +183,21 @@ connectors:
      clientID: $GITHUB_CLIENT_ID
      clientSecret: $GITHUB_CLIENT_SECRET
      redirectURI: http://127.0.0.1:5556/dex/callback
+" > $HOME/sigstore-local/dex-config.yaml
 ```
 
-Then run dex:
+Then hit Ctrl-D to save the file. Aftewards, invoke dex:
 
 ```shell
 cd $HOME/sigstore-local
-env GITHUB_CLIENT_ID=<id> GITHUB_CLIENT_SECRET=<secret> dex serve dex-config.yaml
+GITHUB_CLIENT_ID=<id> GITHUB_CLIENT_SECRET=<secret> dex serve dex-config.yaml
 ```
 
 ## SoftHSM
 
 SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. By default, `$HOME/.config/softhsm2/tokens` is used as the store. This will create your first token:
 
-`softhsm2-util --init-token --free --label fulcio`
+`softhsm2-util --init-token --slot 0 --label fulcio`
 
 Please set the pin to `2324` or at least memorize the PIN.
 
@@ -180,12 +207,13 @@ Configure OpenSC:
 
 * Linux: `export PKCS11_MOD=/usr/lib/softhsm/libsofthsm2.so`
 * (FreeBSD|OpenBSD): `export PKCS11_MOD=/usr/local/lib/softhsm/libsofthsm2.so`
+* macOS: export PKCS11_MOD=$(brew ls --verbose softhsm | grep ".so\$")`
 
 Use OpenSC to create a CA cert:
 
-`pkcs11-tool --module=$PKCS11_MOD --login --login-type user --keypairgen --id 1 --label PKCS11CA --key-type EC:secp384`
+`pkcs11-tool --module=$PKCS11_MOD --login --login-type user --keypairgen --id 1 --label PKCS11CA --key-type EC:secp384r1`
 
-**NOTE: Older versions of Fulcio used FulcioCA, but newer ones use PKCS11CA**
+**NOTE: Older versions of Fulcio used a key label of 'FulcioCA'**
 
 ## Fulcio
 
@@ -209,7 +237,7 @@ Before we run Fulcio, we need to create a configuration file for the pkcs11 libr
 ```shell
 cd $HOME/sigstore-local
 mkdir config
-echo "{ 'Path': '$PKCS11_MOD', 'TokenLabel': 'fulcio', 'Pin': '1234' }" > config/crypto11.conf
+echo "{ \"Path\": \"$PKCS11_MOD\", \"TokenLabel\": \"fulcio\", \"Pin\": \"2324\" }" > config/crypto11.conf
 ```
 
 Now create a CA:
@@ -218,9 +246,15 @@ Now create a CA:
 fulcio createca --org=acme --country=USA --locality=Anytown --province=AnyPlace --postal-code=ABCDEF --street-address=123 Main St --hsm-caroot-id 1 --out fulcio-root.pem
 ```
 
-Create a configuration file for Fulcio in `$HOME/sigstore-local/config/fulcio.json`:
+Older versions of fulcio may say: `finding slot for private key: FulcioCA` followed by `'invalid memory address or nil pointer dereference'`. If so, run this before retrying:
+
+`pkcs11-tool --module=$PKCS11_MOD --login --login-type user --keypairgen --id 1 --label PKCS11CA --key-type EC:secp384r1`
+
+Run this to populate the Fulcio configuration file:
+
 
 ```shell
+printf '
 {
   "OIDCIssuers": {
     "https://accounts.google.com": {
@@ -235,35 +269,20 @@ Create a configuration file for Fulcio in `$HOME/sigstore-local/config/fulcio.js
     }
   }
 }
+' > $HOME/sigstore-local/config/fulcio.json
 ```
 
 Now start Fulcio:
 
 `fulcio serve --config-path=config/fulcio.json --ca=pkcs11ca --hsm-caroot-id=1 --ct-log-url=http://localhost:6105/sigstore --host=0.0.0.0 --port=5000`
 
+**NOTE: Older versions of fulcio should use --ca=fulcioca**
+
 You should see a message similar to:
 
 `2022-01-27T16:35:11.359-0800	INFO	app/serve.go:173	0.0.0.0:5000`
 
 If you do, then grab yourself some ice cream and party! 🎉 Congratulations on making it this far.
-
-## Trillian
-
-Trillian is an append-only log for storing records. To install it:
-
-```
-go install github.com/google/trillian/cmd/trillian_log_server@latest 
-go install github.com/google/trillian/cmd/trillian_log_signer@latest 
-go install github.com/google/trillian/cmd/createtree@latest
-```
-
-Trillian has two daemons, first is the log server:
-
-`$HOME/go/bin/trillian_log_server -http_endpoint=localhost:8090 -rpc_endpoint=localhost:8091 --logtostderr`
-
-Then is the log signer:
-
-`$HOME/go/bin/trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8190 -rpc_endpoint=localhost:8191  --batch_size=1000 --sequencer_guard_window=0`
 
 
 ## Certificate Transparency Server
