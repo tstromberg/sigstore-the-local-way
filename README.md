@@ -207,7 +207,7 @@ Configure OpenSC:
 
 * Linux: `export PKCS11_MOD=/usr/lib/softhsm/libsofthsm2.so`
 * (FreeBSD|OpenBSD): `export PKCS11_MOD=/usr/local/lib/softhsm/libsofthsm2.so`
-* macOS: `export PKCS11_MOD=$(brew ls --verbose softhsm | grep ".so\$")`
+* macOS: `export PKCS11_MOD=$(brew --prefix softhsm)/lib/softhsm/libsofthsm2.so`
 
 Use OpenSC to create a CA cert:
 
