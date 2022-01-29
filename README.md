@@ -132,7 +132,7 @@ For the Homepage URL, use `http://localhost:5556/` and for the Authorization cal
 Run this to populate the Dex configuration:
 
 ```yaml
-env GITHUB_CLIENT_ID=<your ID> GITHUB_CLIENT_SECRET=<your secret> printf "\
+GITHUB_CLIENT_ID=<your ID> GITHUB_CLIENT_SECRET=<your secret> printf "\
 issuer: http://127.0.0.1
 
 storage:
@@ -186,7 +186,7 @@ connectors:
 " > $HOME/sigstore-local/dex-config.yaml
 ```
 
-Then hit Ctrl-D to save the file. Aftewards, invoke dex:
+Start dex:
 
 ```shell
 cd $HOME/sigstore-local
@@ -207,7 +207,7 @@ Configure OpenSC:
 
 * Linux: `export PKCS11_MOD=/usr/lib/softhsm/libsofthsm2.so`
 * (FreeBSD|OpenBSD): `export PKCS11_MOD=/usr/local/lib/softhsm/libsofthsm2.so`
-* macOS: export PKCS11_MOD=$(brew ls --verbose softhsm | grep ".so\$")`
+* macOS: `export PKCS11_MOD=$(brew ls --verbose softhsm | grep ".so\$")`
 
 Use OpenSC to create a CA cert:
 
@@ -239,8 +239,7 @@ cd $HOME/sigstore-local
 mkdir config
 echo "{ \"Path\": \"$PKCS11_MOD\", \"TokenLabel\": \"fulcio\", \"Pin\": \"2324\" }" > config/crypto11.conf
 ```
-
-Now create a CA:
+Ccreate a CA:
 
 ```shell
 fulcio createca --org=acme --country=USA --locality=Anytown --province=AnyPlace --postal-code=ABCDEF --street-address=123 Main St --hsm-caroot-id 1 --out fulcio-root.pem
@@ -250,7 +249,7 @@ Older versions of fulcio may say: `finding slot for private key: FulcioCA` follo
 
 `pkcs11-tool --module=$PKCS11_MOD --login --login-type user --keypairgen --id 1 --label PKCS11CA --key-type EC:secp384r1`
 
-Run this to populate the Fulcio configuration file:
+Populate the Fulcio configuration file:
 
 
 ```shell
@@ -272,7 +271,7 @@ printf '
 ' > $HOME/sigstore-local/config/fulcio.json
 ```
 
-Now start Fulcio:
+Start Fulcio:
 
 `fulcio serve --config-path=config/fulcio.json --ca=pkcs11ca --hsm-caroot-id=1 --ct-log-url=http://localhost:6105/sigstore --host=0.0.0.0 --port=5000`
 
@@ -307,17 +306,19 @@ This command will output a long log ID number, which you will momentarily.
 Populate `$HOME/sigstore-local/ct.cfg`, replacing <Log ID number> and <passphrase>:
 
 ```
+LOG_ID=<log id> PASS=<password> printf "\
 config {
-  log_id: <Log ID number>
-  prefix: "sigstore"
-  roots_pem_file: "./fulcio-root.pem"
+  log_id: $LOG_ID
+  prefix: \"sigstore\"
+  roots_pem_file: \"./fulcio-root.pem\"
   private_key: {
     [type.googleapis.com/keyspb.PEMKeyFile] {
-       path: "./privkey.pem"
-       password: "<passphrase>"
+       path: \"./privkey.pem\"
+       password: \"$PASS\"
     }
   }
 }
+" > $HOME/sigstore-local/ct.cfg
 ```
 
 Next, start the certificate transparency server:
@@ -350,6 +351,7 @@ And run our local registry on port 1338 (no flags required):
 Then we can push a test image to the registry using `ko`:
   
 ```
+go install github.com/google/ko@latest
 cd $HOME/sigstore-local/src/rekor/cmd
 KO_DOCKER_REPO=127.0.0.1:1338/local ko publish ./rekor-cli
 ```
