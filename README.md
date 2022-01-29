@@ -168,14 +168,6 @@ staticClients:
     - 'http://localhost:5556/auth/callback'
 
 connectors:
-#- type: google
-#  id: google-sigstore-test
-#  name: Google
-#  config:
-#    clientID: $GOOGLE_CLIENT_ID
-#    clientSecret: $GOOGLE_CLIENT_SECRET
-#    redirectURI: https://127.0.0.1:5556/auth/callback
-
 - type: github
   id: github-sigstore-test
   name: GitHub
