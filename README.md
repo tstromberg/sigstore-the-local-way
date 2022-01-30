@@ -23,11 +23,12 @@ As part of this tutorial, you will be starting a lot of daemons in the foregroun
 
 ## Installation of non-sigstore prerequisites
 
-* OpenBSD: `doas pkg_add mariadb-server git redis go softhsm2 opensc`
 * Debian: `sudo apt-get install -y mariadb-server git redis-server softhsm2 opensc`
-* Fedora: `sudo dnf install madiadb-server git redis softhsm opensc`
+* Fedora: `sudo dnf install madiadb-server git redis go softhsm opensc`
 * FreeBSD: `doas pkg install mariadb105-server git redis softhsm2 opensc`
-* macOS: `brew install mariadb redis softhsm opensc`
+* macOS: `brew install mariadb redis go softhsm opensc`
+* OpenBSD: `doas pkg_add mariadb-server git redis go softhsm2 opensc`
+* NetBSD: `doas pkgin install mariadb-server git redis go softhsm2 opensc`
 
 Verify that the Go version in your path is v1.16 or higher:
 
@@ -197,8 +198,8 @@ Please set the pin to `2324` or at least memorize the PIN.
 
 Configure OpenSC:
 
+* (FreeBSD|OpenBSD|NetBSD): `export PKCS11_MOD=/usr/local/lib/softhsm/libsofthsm2.so`
 * Linux: `export PKCS11_MOD=/usr/lib/softhsm/libsofthsm2.so`
-* (FreeBSD|OpenBSD): `export PKCS11_MOD=/usr/local/lib/softhsm/libsofthsm2.so`
 * macOS: `export PKCS11_MOD=$(brew --prefix softhsm)/lib/softhsm/libsofthsm2.so`
 
 Use OpenSC to create a CA cert:
