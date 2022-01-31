@@ -63,8 +63,7 @@ Trillian has two daemons, first is the log server:
 
 Then is the log signer:
 
-`$HOME/go/bin/trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8190 -rpc_endpoint=localhost:8191  --batch_size=1000 --sequencer_guard_window=0`
-
+`$HOME/go/bin/trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8190 -rpc_endpoint=localhost:8191`
 
 ## Rekor
 
@@ -91,7 +90,7 @@ bash createdb.sh
 Start rekor:
 
 ```shell
-$HOME/go/bin/rekor-server serve --rekor_server.address=0.0.0.0 --trillian_log_server.port=8091 --enable_retrieve_api=false
+$HOME/go/bin/rekor-server serve --trillian_log_server.port=8091 --enable_retrieve_api=false
 ```
 
 **TIP: If rekor shows the error 'Table 'test.Trees' doesn't exist', run the createdb.sh script again as it may have failed**
@@ -100,7 +99,7 @@ Test rekor:
 
 ```shell
 cd $HOME/sigstore-local/src/rekor
-$HOME/go/bin/rekor-cli upload --artifact tests/test_file.txt --public-key tests/test_public_key.key --signature tests/test_file.sig --rekor_server http://127.0.0.1:3000
+$HOME/go/bin/rekor-cli upload --artifact tests/test_file.txt --public-key tests/test_public_key.key --signature tests/test_file.sig --rekor_server http://localhost:3000
 ```
 
 If it works, the following will be output:
@@ -116,7 +115,7 @@ curl -s http://127.0.0.1:3000/api/v1/log/entries/d2f305428d7c222d7b77f56453dd4b6
 ## Dex
 
 Dex is a federated OpenID Connect Provider, which connects OpenID identities together from multiple providers to drive authentication for other apps. Dex will serve as your OIDC issuer. Unfortunately, Dex doesn't support `go install` so you need to build it manually:
-]
+
 ```shell
 cd $HOME/sigstore-local/src
 git clone https://github.com/dexidp/dex.git
@@ -134,21 +133,17 @@ Run this to populate the Dex configuration:
 
 ```yaml
 GITHUB_CLIENT_ID=<your ID> GITHUB_CLIENT_SECRET=<your secret> printf "\
-issuer: http://127.0.0.1
+issuer: http://localhost:5556
 
 storage:
   type: sqlite3
   config:
     file: ./dex.db
 web:
-  http: 0.0.0.0:5556
+  http: 127.0.0.1:5556
 frontend:
   issuer: sigstore
   theme: light
-
-# Configuration for telemetry
-telemetry:
-  http: 0.0.0.0:5558
 
 # Options for controlling the logger.
 logger:
@@ -165,8 +160,6 @@ staticClients:
   - id: sigstore
     public: true
     name: 'sigstore'
-    redirectURIs:
-    - 'http://localhost:5556/auth/callback'
 
 connectors:
 - type: github
@@ -175,15 +168,14 @@ connectors:
   config:
      clientID: $GITHUB_CLIENT_ID
      clientSecret: $GITHUB_CLIENT_SECRET
-     redirectURI: http://127.0.0.1:5556/dex/callback
+     redirectURI: http://localhost:5556/callback
 " > $HOME/sigstore-local/dex-config.yaml
 ```
 
 Start dex:
 
 ```shell
-cd $HOME/sigstore-local
-GITHUB_CLIENT_ID=<id> GITHUB_CLIENT_SECRET=<secret> dex serve dex-config.yaml
+$HOME/go/bin/dex serve $HOME/sigstore-local/dex-config.yaml
 ```
 
 ## SoftHSM
@@ -266,7 +258,7 @@ printf '
 
 Start Fulcio:
 
-`fulcio serve --config-path=config/fulcio.json --ca=pkcs11ca --hsm-caroot-id=1 --ct-log-url=http://localhost:6105/sigstore --host=0.0.0.0 --port=5000`
+`$HOME/go/bin/fulcio serve --config-path=config/fulcio.json --ca=pkcs11ca --hsm-caroot-id=1 --ct-log-url=http://localhost:6105/sigstore --host=127.0.0.1 --port=5000`
 
 **NOTE: Older versions of fulcio should use --ca=fulcioca**
 
@@ -316,7 +308,7 @@ config {
 
 Next, start the certificate transparency server:
   
-`ct_server -logtostderr -log_config ./ct.cfg -log_rpc_server localhost:8091 -http_endpoint 0.0.0.0:6105`
+`$HOME/go/bin/ct_server -logtostderr -log_config $HOME/sigstore-local/ct.cfg -log_rpc_server localhost:8091 -http_endpoint 0.0.0.0:6105`
   
 If it's successful, the output will look like:
   
