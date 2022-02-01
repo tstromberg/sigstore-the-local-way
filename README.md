@@ -420,6 +420,6 @@ COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign \
 *NOTE: If you are running this tutorial on a non-local machine, wait 2 minutes for the `Enter verification code` prompt, and then forward the Dex webserver port to your local workstation using `ssh -L 5556:127.0.0.1:5556 <dex server>`. Then you can visit the URL it outputs and manually enter in the verification code.
   
 
-UNDER DEVELOPMENT - this step fails with `failed to verify ECDSA signature` :(
+UNDER DEVELOPMENT - this step fails with `failed to verify ECDSA signature`, probably because of the self-signed nature of our certificates. More research is required.
   
   
