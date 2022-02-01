@@ -44,10 +44,28 @@ While Sigstore can use multiple database backends, this tutorial uses MariaDB. A
 * FreeBSD: TODO
 * macOS: `sudo brew services start mariadb && sudo mysql_secure_installation`
 
+During the secure script, I recommend the following answers: `nYYYY`
+
+## Database Schema
+
+Rekor is sigstores signature transparency log. We're going to need to check the repository out to setup the database tables that will be used by Trillian:
+
+```shell
+mkdir -p $HOME/sigstore-local/src
+cd $HOME/sigstore-local/src
+git clone https://github.com/sigstore/rekor.git
+cd rekor/scripts
+```
+
+This will drop and create a 'test' database with a username of `test` and a password of `zaphod':
+
+```shell
+sh createdb.sh
+```
 
 ## Trillian
 
-Trillian is an append-only log for storing records. To install it:
+Trillian is an append-only log for storing records. It's also going to use the MariaDB database we setup in the previous step. To install it:
 
 ```
 go install github.com/google/trillian/cmd/trillian_log_server@latest
@@ -63,27 +81,17 @@ Then is the log signer:
 
 `$HOME/go/bin/trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8190 -rpc_endpoint=localhost:8191`
 
+NOTE: We'll use the `createtree` program we just installed later in the Certificate Transparency step.
+
 ## Rekor
 
 Rekor is sigstores signature transparency log. Install it from source:
 
 ```shell
-mkdir -p $HOME/sigstore-local/src
-cd $HOME/sigstore-local/src
-git clone https://github.com/sigstore/rekor.git
-cd rekor
+cd $HOME/sigstore-local/src/rekor
 pushd cmd/rekor-cli && go install && popd
 pushd cmd/rekor-server && go install && popd
 ```
-
-Drop and create a 'test' database with a username of `test` and a password of `zaphod':
-
-```shell
-cd scripts
-bash createdb.sh
-```
-
-(If MySQL asks for a root password, you can try running the script as root)
 
 Start rekor:
 
@@ -126,7 +134,7 @@ For this demonstration, we're going to use GitHub to authenticate requests, so c
 
 For the Homepage URL, use `http://localhost:5556/` and for the Authorization callback URL, use `http://localhost:5556/auth/callback`
 
-Run this to populate the Dex configuration:
+Run this to populate the Dex configuration, setting the initial `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` values with those emitted by the GitHub applications page.
 
 ```yaml
 GITHUB_CLIENT_ID=<your ID> GITHUB_CLIENT_SECRET=<your secret> printf "\
@@ -177,11 +185,26 @@ $HOME/go/bin/dex serve $HOME/sigstore-local/dex-config.yaml
 
 ## SoftHSM
 
-SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. By default, `$HOME/.config/softhsm2/tokens` is used as the store. This will create your first token:
+SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. This will create your first token:
 
 `softhsm2-util --init-token --slot 0 --label fulcio`
 
 Set the pin to `2324` or memorize your alternative PIN.
+
+If softhsm2-util complains `Please verify that the SoftHSM configuration is correct`, run the following to populate a default configuration:
+
+```
+mkdir -p $HOME/.config/softhsm2/tokens && printf "\
+directories.tokendir = $HOME/.config/softhsm2/tokens
+objectstore.backend = file
+log.level = INFO
+slots.removable = false
+" > $HOME/.config/softhsm2/softhsm2.conf
+
+export SOFTHSM2_CONF=$HOME/.config/softhsm2/softhsm2.conf
+```
+
+Then try again.
 
 ## OpenSC
 
@@ -207,7 +230,7 @@ cd fulcio
 go install .
 ```
 
-If you run into compilattion errors on OpenBSD, run the following to update the errant dependencies:
+If you run into compilation errors on OpenBSD, run the following to update the errant dependencies:
 
 ```
 go mod edit -replace=github.com/ThalesIgnite/crypto11=github.com/tstromberg/crypto11@v1.2.6-0.20220126194112-d1d20b7b79b6
@@ -222,10 +245,11 @@ cd $HOME/sigstore-local
 mkdir config
 echo "{ \"Path\": \"$PKCS11_MOD\", \"TokenLabel\": \"fulcio\", \"Pin\": \"2324\" }" > config/crypto11.conf
 ```
-Ccreate a CA:
+
+Create a CA:
 
 ```shell
-fulcio createca --org=acme --country=USA --locality=Anytown --province=AnyPlace --postal-code=ABCDEF --street-address=123 Main St --hsm-caroot-id 1 --out fulcio-root.pem
+$HOME/go/bin/fulcio createca --org=acme --country=USA --locality=Anytown --province=AnyPlace --postal-code=ABCDEF --street-address=123 Main St --hsm-caroot-id 1 --out fulcio-root.pem
 ```
 
 Populate the Fulcio configuration file:
@@ -253,7 +277,7 @@ Start Fulcio:
 
 You should see a message similar to:
 
-`2022-01-27T16:35:11.359-0800	INFO	app/serve.go:173	0.0.0.0:5000`
+`2022-01-27T16:35:11.359-0800	INFO	app/serve.go:173	127.0.0.1:5000`
 
 If you do, then grab yourself some ice cream and party! 🎉 Congratulations on making it this far.
 
@@ -326,7 +350,7 @@ Then we can push a test image to the registry using `ko`:
 ```
 go install github.com/google/ko@latest
 cd $HOME/sigstore-local/src/rekor/cmd
-KO_DOCKER_REPO=localhost:1338/local ko publish ./rekor-cli
+KO_DOCKER_REPO=localhost:1338/local $HOME/go/bin/ko publish ./rekor-cli
 ```
 
 ## Sign things using cosign!
@@ -339,7 +363,7 @@ Install the latest release:
 
 Sign the container you published:
 
-`COSIGN_EXPERIMENTAL=1 cosign sign --oidc-issuer "http://localhost:5556" --fulcio-url "http://localhost:5000" --rekor-url "http://localhost:3000" localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest`
+`COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign --oidc-issuer "http://localhost:5556" --fulcio-url "http://localhost:5000" --rekor-url "http://localhost:3000" localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest`
 
 Sign an arbitrary tarball:
 
@@ -348,4 +372,4 @@ TBD
 Verify signatures
   
 TBD
-  
+ 
