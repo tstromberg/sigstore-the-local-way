@@ -21,7 +21,7 @@ This tutorial involves launching several foreground processes, so I highly recom
 
 ## Installation of non-sigstore prerequisites
 
-* Debian: `sudo apt-get install -y mariadb-server git redis-server softhsm2 opensc`
+* Debian|Ubuntu: `sudo apt-get install -y mariadb-server git redis-server softhsm2 opensc`
 * Fedora: `sudo dnf install madiadb-server git redis go softhsm opensc`
 * FreeBSD: `doas pkg install mariadb105-server git redis softhsm2 opensc`
 * macOS: `brew install mariadb redis go softhsm opensc`
@@ -353,23 +353,48 @@ cd $HOME/sigstore-local/src/rekor/cmd
 KO_DOCKER_REPO=localhost:1338/local $HOME/go/bin/ko publish ./rekor-cli
 ```
 
-## Sign things using cosign!
-
-**NOTE: This step is still under development**
+## Basic signing with cosign
 
 Install the latest release:
 
 `go install github.com/sigstore/cosign/cmd/cosign@latest`
 
-Sign the container you published:
+The most basic usage of cosign skips Dex, Fulcio, and Rekor entirely by using a local keypair:
+  
+```
+cd $HOME/sigstore-local
+$HOME/go/bin/cosign generate-key-pair
+```
+
+Sign the container we published to the local registry:
+  
+`$HOME/go/bin/cosign sign --key cosign.key localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest`
+  
+And validate the signature:
+  
+`$HOME/go/bin/cosign verify --key cosign.pub localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9 || echo OHNO`
+
+Admittedly, the successful output looks scary:
+  
+```
+Verification for localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest --
+The following checks were performed on each of these signatures:
+  - The cosign claims were validated
+  - The signatures were verified against the specified public key
+  - Any certificates were verified against the Fulcio roots.
+
+[{"critical":{"identity":{"docker-reference":"localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9"},"image":{"docker-manifest-digest":"sha256:3a46c2e44bfe8ea0231af6ab2f7adebd0bab4a892929b307c0b48d6958863a4d"},"type":"cosign container image signature"},"optional":null}]
+```  
+  
+One can also sign non-container artifacts using `cosign` - see https://github.com/sigstore/cosign/#working-with-other-artifacts  
+  
+## cosign + rekor + fulcio
+  
+Now we will try to use some experimental features of Fulcio: Integration with the Rekor transparency log and keyless signatures using the Fulcio CA. Fulcio will uinstead rely on a combination of certificates stored in SoftHSM and the OIDC tokens provided by Dex and Github:
+   
+Sign the container:
 
 `COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign --oidc-issuer "http://localhost:5556" --fulcio-url "http://localhost:5000" --rekor-url "http://localhost:3000" localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest`
 
-Sign an arbitrary tarball:
-
-TBD
-
-Verify signatures
+*NOTE: If you are running this tutorial on a non-local machine, wait 2 minutes for the `Enter verification code` prompt, and then forward the Dex webserver port to your local workstation using `ssh -L 5556:127.0.0.1:5556 <dex server>`. Then you can visit the URL it outputs and manually enter in the verification code.
   
-TBD
- 
