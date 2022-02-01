@@ -388,7 +388,7 @@ The following checks were performed on each of these signatures:
   
 One can also sign non-container artifacts using `cosign` - see https://github.com/sigstore/cosign/#working-with-other-artifacts  
   
-## cosign + rekor + fulcio
+## cosign + rekor + fulcio (EXPERIMENTAL)
   
 Now we will try to use some experimental features of Fulcio: Integration with the Rekor transparency log and keyless signatures using the Fulcio CA. Fulcio will uinstead rely on a combination of certificates stored in SoftHSM and the OIDC tokens provided by Dex and Github:
    
@@ -397,4 +397,8 @@ Sign the container:
 `COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign --oidc-issuer "http://localhost:5556" --fulcio-url "http://localhost:5000" --rekor-url "http://localhost:3000" localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest`
 
 *NOTE: If you are running this tutorial on a non-local machine, wait 2 minutes for the `Enter verification code` prompt, and then forward the Dex webserver port to your local workstation using `ssh -L 5556:127.0.0.1:5556 <dex server>`. Then you can visit the URL it outputs and manually enter in the verification code.
+  
+
+UNDER DEVELOPMENT - this step fails with `failed to verify ECDSA signature` :(
+  
   
