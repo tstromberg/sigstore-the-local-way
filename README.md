@@ -3,7 +3,7 @@
 This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions. This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way) with the following changes:
 
 * Simpler: Skips steps unnecessary for local use (provisioning nodes, DNS, HAProxy, Certbot)
-* Cross-platform: Initially developed on [https://openbsd.org/](OpenBSD), and compatible with most UNIX-like operating systems and shells
+* Cross-platform: Initially developed on [OpenBSD](https://openbsd.org/), and compatible with most UNIX-like operating systems and shells
  
 ## Environment
 
