@@ -199,19 +199,20 @@ Use OpenSC to create a CA cert:
 
 ## Fulcio
 
-On most platforms, install the latest Fulcio using:
 
 ```shell
-go install github.com/sigstore/fulcio@latest
+cd $HOME/sigstore-local/src
+git clone https://github.com/sigstore/fulcio.git
+cd fulcio
+go install .
 ```
 
-OpenBSD is temporarily an exception, as you'll need to override two of the dependencies due to out-of-date and incompatible components:
+If you run into compilattion errors on OpenBSD, run the following to update the errant dependencies:
 
 ```
 go mod edit -replace=github.com/ThalesIgnite/crypto11=github.com/tstromberg/crypto11@v1.2.6-0.20220126194112-d1d20b7b79b6
 go mod edit -replace=github.com/containers/ocicrypt=github.com/tstromberg/ocicrypt@v1.1.3-0.20220126200830-4f5e8d1378f0
 go mod tidy
-go install .
 ```
 
 Before we run Fulcio, we need to create a configuration file for the pkcs11 library:
@@ -226,10 +227,6 @@ Ccreate a CA:
 ```shell
 fulcio createca --org=acme --country=USA --locality=Anytown --province=AnyPlace --postal-code=ABCDEF --street-address=123 Main St --hsm-caroot-id 1 --out fulcio-root.pem
 ```
-
-Older versions of fulcio may say: `finding slot for private key: FulcioCA` followed by `'invalid memory address or nil pointer dereference'`. If so, run this before retrying:
-
-`pkcs11-tool --module=$PKCS11_MOD --login --login-type user --keypairgen --id 1 --label PKCS11CA --key-type EC:secp384r1`
 
 Populate the Fulcio configuration file:
 
@@ -342,7 +339,7 @@ Install the latest release:
 
 Sign the container you published:
 
-`COSIGN_EXPERIMENTAL=1 cosign sign --oidc-issuer "http://localhost:5556/auth" --fulcio-url "http://localhost:5000" --rekor-url "http://localhost:3000" logalhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest`
+`COSIGN_EXPERIMENTAL=1 cosign sign --oidc-issuer "http://localhost:5556" --fulcio-url "http://localhost:5000" --rekor-url "http://localhost:3000" localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest`
 
 Sign an arbitrary tarball:
 
