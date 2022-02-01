@@ -15,18 +15,16 @@ This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/s
 
 This tutorial was initially developed on [https://openbsd.org/](OpenBSD), and is designed to work across a wide array of operating-systems and shells.
 
-It does ocassionally refers to `doas`, a secure drop-in replacement for `sudo`. If it is not installed on your host, feel free to type `sudo` instead, install doas, or run `alias doas=sudo`.
-
 This tutorial involves launching several foreground processes, so I highly recommend a terminal multiplexer such as [tmux](https://github.com/tmux/tmux/wiki) or [screen](https://www.gnu.org/software/screen/). For your convenience, this repository includes a [script](launch-sigstore.sh) to relaunch the daemons within a tmux session at the completion of the tutorial.
 
 ## Installation of non-sigstore prerequisites
 
-* Debian|Ubuntu: `sudo apt-get install -y mariadb-server git redis-server softhsm2 opensc`
-* Fedora: `sudo dnf install madiadb-server git redis go softhsm opensc`
-* FreeBSD: `doas pkg install mariadb105-server git redis softhsm2 opensc`
-* macOS: `brew install mariadb redis go softhsm opensc`
-* OpenBSD: `doas pkg_add mariadb-server git redis go softhsm2 opensc`
-* NetBSD: `doas pkgin install mariadb-server git redis go softhsm2 opensc`
+* Debian|Ubuntu: `sudo apt-get install -y mariadb-server git softhsm2 opensc`
+* Fedora: `sudo dnf install mariadb-server git go softhsm opensc`
+* FreeBSD: `doas pkg install mariadb105-server git softhsm2 opensc`
+* macOS: `brew install mariadb go softhsm opensc`
+* OpenBSD: `doas pkg_add mariadb-server git go softhsm2 opensc`
+* NetBSD: `doas pkgin install mariadb-server git go softhsm2 opensc`
 
 Verify that the Go version in your path is v1.16 or higher:
 
@@ -40,7 +38,7 @@ While Sigstore can use multiple database backends, this tutorial uses MariaDB. A
 
 * OpenBSD: `doas mysql_install_db && doas rcctl start mysqld && doas mysql_secure_installation`
 * Debian: `sudo mysql_secure_installation`
-* Fedora: TODO
+* Fedora: `sudo systemctl start mariadb && sudo mysql_secure_installation`
 * FreeBSD: TODO
 * macOS: `sudo brew services start mariadb && sudo mysql_secure_installation`
 
@@ -60,7 +58,7 @@ cd rekor/scripts
 This will drop and create a 'test' database with a username of `test` and a password of `zaphod':
 
 ```shell
-sh createdb.sh
+sudo sh createdb.sh
 ```
 
 ## Trillian
@@ -211,14 +209,13 @@ Then try again.
 Configure OpenSC:
 
 * (FreeBSD|OpenBSD|NetBSD): `export PKCS11_MOD=/usr/local/lib/softhsm/libsofthsm2.so`
-* Linux: `export PKCS11_MOD=/usr/lib/softhsm/libsofthsm2.so`
+* Debian|Ubuntu: `export PKCS11_MOD=/usr/lib/softhsm/libsofthsm2.so`
+* Fedora: `export PKCS11_MOD=/usr/lib64/libsofthsm2.so`
 * macOS: `export PKCS11_MOD=$(brew --prefix softhsm)/lib/softhsm/libsofthsm2.so`
 
 Use OpenSC to create a CA cert:
 
 `pkcs11-tool --module=$PKCS11_MOD --login --login-type user --keypairgen --id 1 --label PKCS11CA --key-type EC:secp384r1`
-
-**NOTE: Older versions of Fulcio used a key label of 'FulcioCA'**
 
 ## Fulcio
 
