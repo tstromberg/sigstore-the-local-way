@@ -42,19 +42,16 @@ During the secure script, I recommend the following answers: `nYYYY`
 
 ## Database Schema
 
-Rekor is sigstores signature transparency log. We're going to need to check the repository out to setup the database tables that will be used by Trillian:
+Rekor is sigstores signature transparency log. This will setup the database tables that will be used by Trillian:
+
+We're going to need to check the repository out to setup the database tables that will be used by Trillian:
 
 ```shell
 mkdir -p $HOME/sigstore-local/src
 cd $HOME/sigstore-local/src
 git clone https://github.com/sigstore/rekor.git
 cd rekor/scripts
-```
-
-This will drop and create a 'test' database with a username of `test` and a password of `zaphod':
-
-```shell
-sudo sh createdb.sh
+sudo sh -x createdb.sh
 ```
 
 ## Trillian
@@ -97,20 +94,19 @@ Start rekor:
 $HOME/go/bin/rekor-server serve --trillian_log_server.port=8091 --enable_retrieve_api=false
 ```
 
-**TIP: If rekor shows the error 'Table 'test.Trees' doesn't exist', run the createdb.sh script again as it may have failed**
-
 Test rekor:
 
 ```shell
 cd $HOME/sigstore-local/src/rekor
-$HOME/go/bin/rekor-cli upload --artifact tests/test_file.txt --public-key tests/test_public_key.key --signature tests/test_file.sig --rekor_server http://localhost:3000
+$HOME/go/bin/rekor-cli upload --artifact tests/test_file.txt --public-key tests/test_public_key.key --signature tests/test_file.sig \
+  --rekor_server http://localhost:3000
 ```
 
 If it works, the following will be output:
 
 `Created entry at index 0, available at: http://127.0.0.1:3000/api/v1/log/entries/d2f305428d7c222d7b77f56453dd4b6e6851752ecacc78e5992779c8f9b61dd9`
 
-Inspect the rekor record using:
+Optionally, you may inspect the rekor record using:
 
 ```shell
 curl -s http://127.0.0.1:3000/api/v1/log/entries/d2f305428d7c222d7b77f56453dd4b6e6851752ecacc78e5992779c8f9b61dd9 | jq
@@ -128,14 +124,22 @@ gmake build || make build
 cp bin/dex $HOME/go/bin
 ```
 
-For this demonstration, we're going to use GitHub to authenticate requests, so create a test token at https://github.com/settings/applications/new
+For this demonstration, we'll use GitHub to authenticate requests. Visit [GitHub: Register a new OAuth Application](https://github.com/settings/applications/new), and fill in the form accordingly:
 
-For the Homepage URL, use `http://localhost:5556/` and for the Authorization callback URL, use `http://localhost:5556/auth/callback`
+* Application Name: `My Local Sigstore Adventure`
+* Homepage URL, use `http://localhost/`
+* Authorization callback URL: `http://localhost:5556/auth/callback`
 
-Run this to populate the Dex configuration, setting the initial `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` values with those emitted by the GitHub applications page.
+When you click **Register Application**, it will output a client ID and secret. Save them to your environment:
 
 ```shell
-GITHUB_CLIENT_ID=<your ID> GITHUB_CLIENT_SECRET=<your secret> printf "\
+export GITHUB_CLIENT_ID=<your ID> GITHUB_CLIENT_SECRET=<your secret>
+```
+
+Create a Dex configuration which answer local OAuth requests, delegating the authentication to GitHub:
+
+```shell
+printf "\
 issuer: http://localhost:5556
 
 storage:
@@ -148,12 +152,10 @@ frontend:
   issuer: sigstore
   theme: light
 
-# Options for controlling the logger.
 logger:
   level: "debug"
   format: "json"
 
-# Default values shown below
 oauth2:
   responseTypes: [ "code" ]
   skipApprovalScreen: false
@@ -229,12 +231,13 @@ cd fulcio
 go install .
 ```
 
-If you run into compilation errors on OpenBSD, run the following to update the errant dependencies:
+If you are on OpenBSD and hit the error `ld: error: unable to find library -ldl`, you'll need to override some obsolete dependencies:
 
 ```shell
 go mod edit -replace=github.com/ThalesIgnite/crypto11=github.com/tstromberg/crypto11@v1.2.6-0.20220126194112-d1d20b7b79b6
 go mod edit -replace=github.com/containers/ocicrypt=github.com/tstromberg/ocicrypt@v1.1.3-0.20220126200830-4f5e8d1378f0
 go mod tidy
+go install .
 ```
 
 Before we run Fulcio, we need to create a configuration file for the pkcs11 library:
@@ -280,11 +283,9 @@ SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio serve \
 
 **NOTE: Older versions of fulcio should use --ca=fulcioca**
 
-You should see a message similar to:
+If it is working, you will see a message similar to:
 
 `2022-01-27T16:35:11.359-0800	INFO	app/serve.go:173	127.0.0.1:5000`
-
-If you do, then grab yourself some ice cream and party! 🎉 Congratulations on making it this far.
 
 ## Certificate Transparency Server
 
@@ -292,7 +293,7 @@ If you do, then grab yourself some ice cream and party! 🎉 Congratulations on 
 go install github.com/google/certificate-transparency-go/trillian/ctfe/ct_server@latest
 ```
 
-Next we need to setup a private key. Remember the passphrase you give in the second part as you will need it.
+Next we need to setup a private key. I'll use 2324 again, but you can use anything so long as you remember the passphrase:
 
 ```shell
 cd $HOME/sigstore-local
@@ -301,25 +302,30 @@ openssl ec -in unenc.key -out privkey.pem -des
 rm unenc.key
 ```
 
-Next, we'll talk to the trillian_log_server we just stood up to grab a log ID:
+The Trillian system is multi-tenant: a single Trillian system can support multiple independent Merkle trees. This means that our particular tree for holding Web PKI certificates needs to be provisioned in the system:
+
 
 ```shell
 $HOME/go/bin/createtree --admin_server localhost:8091
 ```
 
-This command will output a long log ID number, which you will momentarily.
-
-Populate `$HOME/sigstore-local/ct.cfg`, replacing <Log ID number> and <passphrase>:
+This command will output a long log ID number. Save it to your environment:
 
 ```shell
-LOG_ID=<log id> PASS=<password> printf "\
+export LOG_ID=<log id>
+```
+
+Then populate the Certificate Transparency configuration file, filling <password> in with the certificate password you just used:
+
+```shell
+PASS=<password> printf "\
 config {
   log_id: $LOG_ID
   prefix: \"sigstore\"
-  roots_pem_file: \"./fulcio-root.pem\"
+  roots_pem_file: \"$HOME/sigstore-local/fulcio-root.pem\"
   private_key: {
     [type.googleapis.com/keyspb.PEMKeyFile] {
-       path: \"./privkey.pem\"
+       path: \"$HOME/sigstore-local/privkey.pem\"
        password: \"$PASS\"
     }
   }
@@ -329,7 +335,9 @@ config {
 
 Next, start the certificate transparency server:
 
-`$HOME/go/bin/ct_server -logtostderr -log_config $HOME/sigstore-local/ct.cfg -log_rpc_server localhost:8091 -http_endpoint 0.0.0.0:6105`
+```shell
+$HOME/go/bin/ct_server -logtostderr -log_config $HOME/sigstore-local/ct.cfg -log_rpc_server localhost:8091 -http_endpoint 0.0.0.0:6105
+```
 
 If it's successful, the output will look like:
 
@@ -342,21 +350,23 @@ I0128 11:42:16.510562   65425 main.go:316] Enabling quota for intermediate certi
 I0128 11:42:16.511090   65425 instance.go:85] Start internal get-sth operations on sigstore (8494167753837750461)
 ```
 
-If not, chances are that you typo'd the log_id or password. :)
 
 ## Registry
 
-While we could feasibly use any container registry, themeatically, we're going to run our own local registry:
+While sigstore can use any Container Registry, in the interest of keeping things local, we'll install a very basic one for testing:
+ 
 
 ```shell
 go install github.com/google/go-containerregistry/cmd/registry@latest
 ```
 
-And run our local registry on port 1338 (no flags required):
+This will begin the local registry - emitting no output until we talk to it.
 
-`$HOME/go/bin/registry`
+```shell
+$HOME/go/bin/registry
+```
 
-Then we can push a test image to the registry using `ko`:
+We'll use `ko` to push an unsigned test image to our local registry, as it is multi-platform and does not require Docker:
 
 ```shell
 go install github.com/google/ko@latest
@@ -372,7 +382,7 @@ Install the latest release:
 go install github.com/sigstore/cosign/cmd/cosign@latest
 ```
 
-The most basic usage of cosign skips Dex, Fulcio, and Rekor entirely by using a local keypair:
+The most basic usage of cosign skips Dex, Fulcio, and Rekor entirely by using a local keypair. You can use any password you like here:
   
 ```shell
 cd $HOME/sigstore-local
@@ -391,7 +401,8 @@ And validate the signature:
 $HOME/go/bin/cosign verify --key cosign.pub localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9 || echo OHNO
 ```
 
-Admittedly, the successful output looks scary:
+The successful verification output looks verbose and scary, but everything checks out:
+ 
   
 ```
 Verification for localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest --
@@ -417,9 +428,15 @@ COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign \
    "http://localhost:3000" localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest
 ```
 
-*NOTE: If you are running this tutorial on a non-local machine, wait 2 minutes for the `Enter verification code` prompt, and then forward the Dex webserver port to your local workstation using `ssh -L 5556:127.0.0.1:5556 <dex server>`. Then you can visit the URL it outputs and manually enter in the verification code.
+**NOTE: If Fulcio panics with 'index out of range`, patch in https://github.com/sigstore/fulcio/pull/370**
+
+**NOTE: If you are running this tutorial on a non-local machine, wait 2 minutes for the `Enter verification code` prompt, and then forward the Dex webserver port to your local workstation using `ssh -L 5556:127.0.0.1:5556 <dex server>`. Then you can visit the URL it outputs and manually enter in the verification code.**
   
 
-UNDER DEVELOPMENT - this step fails with `failed to verify ECDSA signature`, probably because of the self-signed nature of our certificates. More research is required.
-  
+UNDER DEVELOPMENT - this step fails with:
+ 
+`main.go:46: error during command execution: signing [localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest]: getting signer: getting key from Fulcio: verifying SCT: failed to verify ECDSA signature`
+
+ This is probably because of the self-signed nature of our certificates. More research is required.
+
   
