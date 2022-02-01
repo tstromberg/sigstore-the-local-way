@@ -241,13 +241,8 @@ Populate the Fulcio configuration file:
 printf '
 {
   "OIDCIssuers": {
-    "https://accounts.google.com": {
-      "IssuerURL": "https://accounts.google.com",
-      "ClientID": "sigstore",
-      "Type": "email"
-    },
-    "http://127.0.0.1:5556": {
-      "IssuerURL": "http://127.0.0.1:5556",
+    "http://localhost:5556": {
+      "IssuerURL": "http://localhost:5556",
       "ClientID": "sigstore",
       "Type": "email"
     }
