@@ -1,23 +1,17 @@
-# sigstore-the-local-way
+# sigstore-the-local-way (UNDER DEVELOPMENT)
 
-sigstore isn't scary.
+This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions. This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way) with the following changes:
 
-This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions.
-
-This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way) with the following changes:
-
-* Simpler: Skips or combines unneccessary steps when possible, such as omitting DNS configuration
-* Cross-platform (Linux, OpenBSD, macOS, etc)
-* Local only - does not use of GCP or other Cloud providers
-* Minimal use of root privileges
-
+* Simpler: Skips steps unnecessary for local use (provisioning nodes, DNS, HAProxy, Certbot)
+* Cross-platform: Initially developed on [https://openbsd.org/](OpenBSD), and compatible with most UNIX-like operating systems and shells
+ 
 ## Environment
-
-This tutorial was initially developed on [https://openbsd.org/](OpenBSD), and is designed to work across a wide array of operating-systems and shells.
 
 This tutorial involves launching several foreground processes, so I highly recommend a terminal multiplexer such as [tmux](https://github.com/tmux/tmux/wiki) or [screen](https://www.gnu.org/software/screen/). For your convenience, this repository includes a [script](launch-sigstore.sh) to relaunch the daemons within a tmux session at the completion of the tutorial.
 
 ## Installation of non-sigstore prerequisites
+
+Installing the full-stack requires the Go programming language, a SQL database, and a handful of security tools:
 
 * Debian|Ubuntu: `sudo apt-get install -y mariadb-server git softhsm2 opensc`
 * Fedora: `sudo dnf install mariadb-server git go softhsm opensc`
@@ -183,26 +177,22 @@ $HOME/go/bin/dex serve $HOME/sigstore-local/dex-config.yaml
 
 ## SoftHSM
 
-SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. This will create your first token:
+SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module.
+
+```
+mkdir -p $HOME/sigstore-local/tokens && printf "\
+directories.tokendir = $HOME/sigstore-local/tokens
+log.level = DEBUG
+" > $HOME/sigstore-local/softhsm2.conf
+
+export SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf
+```
+
+This will create your first token:
 
 `softhsm2-util --init-token --slot 0 --label fulcio`
 
 Set the pin to `2324` or memorize your alternative PIN.
-
-If softhsm2-util complains `Please verify that the SoftHSM configuration is correct`, run the following to populate a default configuration:
-
-```
-mkdir -p $HOME/.config/softhsm2/tokens && printf "\
-directories.tokendir = $HOME/.config/softhsm2/tokens
-objectstore.backend = file
-log.level = INFO
-slots.removable = false
-" > $HOME/.config/softhsm2/softhsm2.conf
-
-export SOFTHSM2_CONF=$HOME/.config/softhsm2/softhsm2.conf
-```
-
-Then try again.
 
 ## OpenSC
 
@@ -215,10 +205,14 @@ Configure OpenSC:
 
 Use OpenSC to create a CA cert:
 
-`pkcs11-tool --module=$PKCS11_MOD --login --login-type user --keypairgen --id 1 --label PKCS11CA --key-type EC:secp384r1`
+```
+SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf pkcs11-tool --module=$PKCS11_MOD \
+  --login --login-type user --keypairgen --id 1 --label PKCS11CA --key-type EC:secp384r1
+```
 
 ## Fulcio
 
+fulcio is a free Root-CA for code signing certs, issuing certificates based on an OIDC email address.
 
 ```shell
 cd $HOME/sigstore-local/src
@@ -246,7 +240,9 @@ echo "{ \"Path\": \"$PKCS11_MOD\", \"TokenLabel\": \"fulcio\", \"Pin\": \"2324\"
 Create a CA:
 
 ```shell
-$HOME/go/bin/fulcio createca --org=acme --country=USA --locality=Anytown --province=AnyPlace --postal-code=ABCDEF --street-address=123 Main St --hsm-caroot-id 1 --out fulcio-root.pem
+SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio createca --org=acme --country=USA \
+  --locality=Anytown --province=AnyPlace --postal-code=ABCDEF --street-address=123 Main St --hsm-caroot-id 1 \
+  --out fulcio-root.pem
 ```
 
 Populate the Fulcio configuration file:
@@ -268,7 +264,11 @@ printf '
 
 Start Fulcio:
 
-`$HOME/go/bin/fulcio serve --config-path=config/fulcio.json --ca=pkcs11ca --hsm-caroot-id=1 --ct-log-url=http://localhost:6105/sigstore --host=127.0.0.1 --port=5000`
+```
+SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio serve \
+  --config-path=config/fulcio.json --ca=pkcs11ca --hsm-caroot-id=1 --ct-log-url=http://localhost:6105/sigstore \
+  --host=127.0.0.1 --port=5000
+```
 
 **NOTE: Older versions of fulcio should use --ca=fulcioca**
 
