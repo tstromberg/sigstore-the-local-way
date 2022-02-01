@@ -22,7 +22,9 @@ Installing the full-stack requires the Go programming language, a SQL database, 
 
 Verify that the Go version in your path is v1.16 or higher:
 
-`go version`
+```shell
+go version
+```
 
 If your Go version is too old, uninstall it and install the latest from https://go.dev/dl/
 
@@ -67,11 +69,15 @@ go install github.com/google/trillian/cmd/createtree@latest
 
 Trillian has two daemons, first is the log server:
 
-`$HOME/go/bin/trillian_log_server -http_endpoint=localhost:8090 -rpc_endpoint=localhost:8091 --logtostderr`
+```shell
+$HOME/go/bin/trillian_log_server -http_endpoint=localhost:8090 -rpc_endpoint=localhost:8091 --logtostderr
+```
 
 Then is the log signer:
 
-`$HOME/go/bin/trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8190 -rpc_endpoint=localhost:8191`
+```shell
+$HOME/go/bin/trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8190 -rpc_endpoint=localhost:8191
+```
 
 NOTE: We'll use the `createtree` program we just installed later in the Certificate Transparency step.
 
@@ -128,7 +134,7 @@ For the Homepage URL, use `http://localhost:5556/` and for the Authorization cal
 
 Run this to populate the Dex configuration, setting the initial `GITHUB_CLIENT_ID` and `GITHUB_CLIENT_SECRET` values with those emitted by the GitHub applications page.
 
-```yaml
+```shell
 GITHUB_CLIENT_ID=<your ID> GITHUB_CLIENT_SECRET=<your secret> printf "\
 issuer: http://localhost:5556
 
@@ -179,7 +185,7 @@ $HOME/go/bin/dex serve $HOME/sigstore-local/dex-config.yaml
 
 SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module.
 
-```
+```shell
 mkdir -p $HOME/sigstore-local/tokens && printf "\
 directories.tokendir = $HOME/sigstore-local/tokens
 log.level = DEBUG
@@ -190,7 +196,9 @@ export SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf
 
 This will create your first token:
 
-`softhsm2-util --init-token --slot 0 --label fulcio`
+```shell
+softhsm2-util --init-token --slot 0 --label fulcio
+```
 
 Set the pin to `2324` or memorize your alternative PIN.
 
@@ -205,7 +213,7 @@ Configure OpenSC:
 
 Use OpenSC to create a CA cert:
 
-```
+```shell
 SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf pkcs11-tool --module=$PKCS11_MOD \
   --login --login-type user --keypairgen --id 1 --label PKCS11CA --key-type EC:secp384r1
 ```
@@ -223,7 +231,7 @@ go install .
 
 If you run into compilation errors on OpenBSD, run the following to update the errant dependencies:
 
-```
+```shell
 go mod edit -replace=github.com/ThalesIgnite/crypto11=github.com/tstromberg/crypto11@v1.2.6-0.20220126194112-d1d20b7b79b6
 go mod edit -replace=github.com/containers/ocicrypt=github.com/tstromberg/ocicrypt@v1.1.3-0.20220126200830-4f5e8d1378f0
 go mod tidy
@@ -264,7 +272,7 @@ printf '
 
 Start Fulcio:
 
-```
+```shell
 SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio serve \
   --config-path=config/fulcio.json --ca=pkcs11ca --hsm-caroot-id=1 --ct-log-url=http://localhost:6105/sigstore \
   --host=127.0.0.1 --port=5000
@@ -280,11 +288,13 @@ If you do, then grab yourself some ice cream and party! 🎉 Congratulations on 
 
 ## Certificate Transparency Server
 
-`go install github.com/google/certificate-transparency-go/trillian/ctfe/ct_server@latest`
+```shell
+go install github.com/google/certificate-transparency-go/trillian/ctfe/ct_server@latest
+```
 
 Next we need to setup a private key. Remember the passphrase you give in the second part as you will need it.
 
-```
+```shell
 cd $HOME/sigstore-local
 openssl ecparam -genkey -name prime256v1 -noout -out unenc.key
 openssl ec -in unenc.key -out privkey.pem -des
@@ -293,13 +303,15 @@ rm unenc.key
 
 Next, we'll talk to the trillian_log_server we just stood up to grab a log ID:
 
-`$HOME/go/bin/createtree --admin_server localhost:8091`
+```shell
+$HOME/go/bin/createtree --admin_server localhost:8091
+```
 
 This command will output a long log ID number, which you will momentarily.
 
 Populate `$HOME/sigstore-local/ct.cfg`, replacing <Log ID number> and <passphrase>:
 
-```
+```shell
 LOG_ID=<log id> PASS=<password> printf "\
 config {
   log_id: $LOG_ID
@@ -336,7 +348,9 @@ If not, chances are that you typo'd the log_id or password. :)
 
 While we could feasibly use any container registry, themeatically, we're going to run our own local registry:
 
-`go install github.com/google/go-containerregistry/cmd/registry@latest`
+```shell
+go install github.com/google/go-containerregistry/cmd/registry@latest
+```
 
 And run our local registry on port 1338 (no flags required):
 
@@ -344,7 +358,7 @@ And run our local registry on port 1338 (no flags required):
 
 Then we can push a test image to the registry using `ko`:
 
-```
+```shell
 go install github.com/google/ko@latest
 cd $HOME/sigstore-local/src/rekor/cmd
 KO_DOCKER_REPO=localhost:1338/local $HOME/go/bin/ko publish ./rekor-cli
@@ -354,22 +368,28 @@ KO_DOCKER_REPO=localhost:1338/local $HOME/go/bin/ko publish ./rekor-cli
 
 Install the latest release:
 
-`go install github.com/sigstore/cosign/cmd/cosign@latest`
+```shell
+go install github.com/sigstore/cosign/cmd/cosign@latest
+```
 
 The most basic usage of cosign skips Dex, Fulcio, and Rekor entirely by using a local keypair:
   
-```
+```shell
 cd $HOME/sigstore-local
 $HOME/go/bin/cosign generate-key-pair
 ```
 
 Sign the container we published to the local registry:
   
-`$HOME/go/bin/cosign sign --key cosign.key localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest`
+```shell
+$HOME/go/bin/cosign sign --key cosign.key localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest
+```
   
 And validate the signature:
   
-`$HOME/go/bin/cosign verify --key cosign.pub localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9 || echo OHNO`
+```shell
+$HOME/go/bin/cosign verify --key cosign.pub localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9 || echo OHNO
+```
 
 Admittedly, the successful output looks scary:
   
@@ -391,7 +411,11 @@ Now we will try to use some experimental features of Fulcio: Integration with th
    
 Sign the container:
 
-`COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign --oidc-issuer "http://localhost:5556" --fulcio-url "http://localhost:5000" --rekor-url "http://localhost:3000" localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest`
+```shell
+COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign \
+   --oidc-issuer "http://localhost:5556" --fulcio-url "http://localhost:5000" --rekor-url \
+   "http://localhost:3000" localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest
+```
 
 *NOTE: If you are running this tutorial on a non-local machine, wait 2 minutes for the `Enter verification code` prompt, and then forward the Dex webserver port to your local workstation using `ssh -L 5556:127.0.0.1:5556 <dex server>`. Then you can visit the URL it outputs and manually enter in the verification code.
   
