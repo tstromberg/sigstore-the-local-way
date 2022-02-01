@@ -1,10 +1,8 @@
 # sigstore-the-local-way
 
-**NOTE: This tutorial is a work-in-progress: Please do not expect it to work yet. PR's welcome**
-
 sigstore isn't scary.
 
-This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions. 
+This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions.
 
 This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way) with the following changes:
 
@@ -19,7 +17,7 @@ This tutorial was initially developed on [https://openbsd.org/](OpenBSD), and is
 
 It does ocassionally refers to `doas`, a secure drop-in replacement for `sudo`. If it is not installed on your host, feel free to type `sudo` instead, install doas, or run `alias doas=sudo`.
 
-As part of this tutorial, you will be starting a lot of daemons in the foreground. I highly recommend using a terminal environment that allows multiple sessions, such as tmux or screen.
+This tutorial involves launching several foreground processes, so I highly recommend a terminal multiplexer such as [tmux](https://github.com/tmux/tmux/wiki) or [screen](https://www.gnu.org/software/screen/). For your convenience, this repository includes a [script](launch-sigstore.sh) to relaunch the daemons within a tmux session at the completion of the tutorial.
 
 ## Installation of non-sigstore prerequisites
 
@@ -34,7 +32,7 @@ Verify that the Go version in your path is v1.16 or higher:
 
 `go version`
 
-If not, uninstall Go and install the latest from https://go.dev/dl/
+If your Go version is too old, uninstall it and install the latest from https://go.dev/dl/
 
 ## MariaDB
 
@@ -52,8 +50,8 @@ While Sigstore can use multiple database backends, this tutorial uses MariaDB. A
 Trillian is an append-only log for storing records. To install it:
 
 ```
-go install github.com/google/trillian/cmd/trillian_log_server@latest 
-go install github.com/google/trillian/cmd/trillian_log_signer@latest 
+go install github.com/google/trillian/cmd/trillian_log_server@latest
+go install github.com/google/trillian/cmd/trillian_log_signer@latest
 go install github.com/google/trillian/cmd/createtree@latest
 ```
 
@@ -124,8 +122,7 @@ gmake build || make build
 cp bin/dex $HOME/go/bin
 ```
 
-For this demonstration, we're going to use GitHub to authenticate requests, so create a test token at 
-https://github.com/settings/applications/new
+For this demonstration, we're going to use GitHub to authenticate requests, so create a test token at https://github.com/settings/applications/new
 
 For the Homepage URL, use `http://localhost:5556/` and for the Authorization callback URL, use `http://localhost:5556/auth/callback`
 
@@ -184,7 +181,7 @@ SoftHSM is an implementation of a cryptographic store accessible through a PKCS 
 
 `softhsm2-util --init-token --slot 0 --label fulcio`
 
-Please set the pin to `2324` or at least memorize the PIN.
+Set the pin to `2324` or memorize your alternative PIN.
 
 ## OpenSC
 
@@ -211,8 +208,8 @@ go install github.com/sigstore/fulcio@latest
 OpenBSD is temporarily an exception, as you'll need to override two of the dependencies due to out-of-date and incompatible components:
 
 ```
-go mod edit -replace=github.com/ThalesIgnite/crypto11=github.com/tstromberg/crypto11@v1.2.6-0.20220126194112-d1d20b7b79b6 
-go mod edit -replace=github.com/containers/ocicrypt=github.com/tstromberg/ocicrypt@v1.1.3-0.20220126200830-4f5e8d1378f0  
+go mod edit -replace=github.com/ThalesIgnite/crypto11=github.com/tstromberg/crypto11@v1.2.6-0.20220126194112-d1d20b7b79b6
+go mod edit -replace=github.com/containers/ocicrypt=github.com/tstromberg/ocicrypt@v1.1.3-0.20220126200830-4f5e8d1378f0
 go mod tidy
 go install .
 ```
@@ -263,7 +260,6 @@ You should see a message similar to:
 
 If you do, then grab yourself some ice cream and party! 🎉 Congratulations on making it this far.
 
-
 ## Certificate Transparency Server
 
 `go install github.com/google/certificate-transparency-go/trillian/ctfe/ct_server@latest`
@@ -302,11 +298,11 @@ config {
 ```
 
 Next, start the certificate transparency server:
-  
+
 `$HOME/go/bin/ct_server -logtostderr -log_config $HOME/sigstore-local/ct.cfg -log_rpc_server localhost:8091 -http_endpoint 0.0.0.0:6105`
-  
+
 If it's successful, the output will look like:
-  
+
 ```
 I0128 11:42:16.401794   65425 main.go:121] **** CT HTTP Server Starting ****
 I0128 11:42:16.401907   65425 main.go:174] Using regular DNS resolver
@@ -315,43 +311,43 @@ I0128 11:42:16.510549   65425 main.go:306] Enabling quota for requesting IP
 I0128 11:42:16.510562   65425 main.go:316] Enabling quota for intermediate certificates
 I0128 11:42:16.511090   65425 instance.go:85] Start internal get-sth operations on sigstore (8494167753837750461)
 ```
-  
-If not, chances are that you typo'd the log_id or password. :) 
-  
+
+If not, chances are that you typo'd the log_id or password. :)
+
 ## Registry
-  
+
 While we could feasibly use any container registry, themeatically, we're going to run our own local registry:
 
 `go install github.com/google/go-containerregistry/cmd/registry@latest`
-  
+
 And run our local registry on port 1338 (no flags required):
-  
+
 `$HOME/go/bin/registry`
-  
+
 Then we can push a test image to the registry using `ko`:
-  
+
 ```
 go install github.com/google/ko@latest
 cd $HOME/sigstore-local/src/rekor/cmd
-KO_DOCKER_REPO=127.0.0.1:1338/local ko publish ./rekor-cli
+KO_DOCKER_REPO=localhost:1338/local ko publish ./rekor-cli
 ```
-  
+
 ## Sign things using cosign!
 
 **NOTE: This step is still under development**
-  
+
 Install the latest release:
-  
+
 `go install github.com/sigstore/cosign/cmd/cosign@latest`
-  
+
 Sign the container you published:
 
-`COSIGN_EXPERIMENTAL=1 cosign sign --oidc-issuer "http://127.0.0.1:5556/auth" --fulcio-url "http://127.0.0.1:5000" --rekor-url "http://127.0.0.1:3000" 127.0.0.1:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest`
+`COSIGN_EXPERIMENTAL=1 cosign sign --oidc-issuer "http://localhost:5556/auth" --fulcio-url "http://localhost:5000" --rekor-url "http://localhost:3000" logalhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest`
 
 Sign an arbitrary tarball:
-  
+
 TBD
-  
+
 Verify signatures
   
 TBD
