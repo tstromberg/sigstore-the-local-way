@@ -129,10 +129,7 @@ While Sigstore can use multiple database backends, this tutorial uses MariaDB. A
 During the secure script, I recommend the following answers: `nYYYY`. Once complete, create the database tables which Trillian will need:
 
 ```shell
-mkdir -p $HOME/sigstore-local/src
-cd $HOME/sigstore-local/src
-git clone https://github.com/sigstore/rekor.git
-cd rekor/scripts
+cd $HOME/sigstore-local/src/rekor/scripts
 sudo sh -x createdb.sh
 ```
 
@@ -207,15 +204,19 @@ With Rekor setup, we can now sign and upload the signature for our image, and ve
 Sign a container image uploading keys to rekor:
 
 ```shell
-COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign --key cosign.key localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9 \
-  --rekor-url=http://localhost:3000
+COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign --key $HOME/sigstore-local/cosign.key \
+  --rekor-url=http://localhost:3000 \
+  localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9
+
 ```
 
 Verify the container against the OCI attestation and the Rekor record:
 
 ```shell
-COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign verify --key cosign.pub localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9 \
-  --rekor-url=http://localhost:3000
+COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign verify --key $HOME/sigstore-local/cosign.pub \
+  --rekor-url=http://localhost:3000 \
+  localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9
+
 ```
 
 Rekor will in-turn rely on both the OCI metadata, as well as Trillian and the MariaDB database we setup earlier to verify the certificate.
@@ -226,57 +227,34 @@ Rekor will in-turn rely on both the OCI metadata, as well as Trillian and the Ma
 
 SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module.
 
-```shell
-mkdir -p $HOME/sigstore-local/tokens
-printf "\
-directories.tokendir = $HOME/sigstore-local/tokens
-log.level = DEBUG
-" > $HOME/sigstore-local/softhsm2.conf
-
-export SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf
-```
-
-Create your first HSM token:
-
-```shell
-softhsm2-util --init-token --slot 0 --label fulcio
-```
-
-Set the pin to `2324`, and then save the resulting configuration file for later use by fulcio:
-
-```shell
-mkdir -p $HOME/sigstore-local/config
-
-echo "{ \"Path\": \"$PKCS11_MOD\", \"TokenLabel\": \"fulcio\", \"Pin\": \"2324\" }" > $HOME/sigstore-local/config/crypto11.conf
-```
-
-### 3.2: Creating a CA certificate with OpenSC
-
-Configure OpenSC:
-
-* (FreeBSD|OpenBSD|NetBSD): `export PKCS11_MOD=/usr/local/lib/softhsm/libsofthsm2.so`
-* Debian|Ubuntu: `export PKCS11_MOD=/usr/lib/softhsm/libsofthsm2.so`
-* Fedora: `export PKCS11_MOD=/usr/lib64/libsofthsm2.so`
-* macOS: `export PKCS11_MOD=$(brew --prefix softhsm)/lib/softhsm/libsofthsm2.so`
-
-Save your key into the HSM:
-
-```shell
-SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf pkcs11-tool --module=$PKCS11_MOD \
-  --login --login-type user --keypairgen --id 1 --label PKCS11CA --key-type EC:secp384r1
+```shel
+SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf pkcs11-tool \
+  --module=$PKCS11_MOD \
+  --login \
+  --login-type user \
+  --keypairgen \
+  --id 1 \
+  --label PKCS11CA \
+  --key-type EC:secp384r1
 ```
 
 Create a CA root certificate:
 
 ```shell
-SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio createca --org=acme --country=USA \
-  --locality=Anytown --province=AnyPlace --postal-code=ABCDEF --street-address=123 Main St --hsm-caroot-id 1 \
-  --out $HOME/sigstore-local/ca_root.pem
+SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio createca \
+  --org=acme \
+  --country=USA \
+  --locality=Anytown \
+  --province=AnyPlace \
+  --postal-code=ABCDEF \
+  --street-address="123 Main St" \
+  --hsm-caroot-id 1 \
+  --out $HOME/sigstore-local/ca-root.pem
 ```
 
 ## 3.3: Installing the Certificate Transparency Frontend
 
-```shell
+```shevll
 go install github.com/google/certificate-transparency-go/trillian/ctfe/ct_server@latest
 ```
 
@@ -293,14 +271,13 @@ Look up the Trillian log ID we previously created, and set the LOG_ID variable t
 
 ```shell
 cat $HOME/sigstore-local/trillian.log_id
-LOG_ID=<result>
+
 ```
 
 Then populate the Certificate Transparency configuration file, filling <password> in with the certificate password you just used:
 
 ```shell
-PASS=<password>
-printf "\
+LOG_ID=<result> PASS=<password> printf "\
 config {
   log_id: $LOG_ID
   prefix: \"sigstore\"
@@ -433,6 +410,7 @@ printf '
 Start Fulcio:
 
 ```shell
+cd $HOME/sigstore-local
 SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio serve \
   --config-path=config/fulcio.json --ca=pkcs11ca --hsm-caroot-id=1 --ct-log-url=http://localhost:6105/sigstore \
   --host=127.0.0.1 --port=5000
@@ -498,10 +476,12 @@ Now we will try to use some experimental features of Fulcio: Integration with th
 
 **NOTE: If you running cosign on a non-local machine, wait 2 minutes for the `Enter verification code` prompt, and then forward the Dex webserver port to your local workstation using `ssh -L 5556:127.0.0.1:5556 <dex server>`. Then you can visit the URL it outputs and manually enter in the verification code.**
 
-Sign the container:
+Add the fulcio-root certificate to our trust list:
+
+Sign the container with our local certificate:
 
 ```shell
-COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign \
+SSL_CERT_FILE=$HOME/sigstore-local/ca-root.pem COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign \
    --oidc-issuer=http://localhost:5556 \
    --fulcio-url=http://localhost:5000 \
    --rekor-url=http://localhost:3000 \
@@ -521,13 +501,33 @@ cosign initialize  --mirror=http://localhost:8081 --root $HOME/sigstore-local/tu
 And try again:
 
 ```shell
-COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign \
+SSL_CERT_FILE=$HOME/sigstore-local/ca-root.pem COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign \
    --oidc-issuer=http://localhost:5556 \
    --fulcio-url=http://localhost:5000 \
    --rekor-url=http://localhost:3000 \
    localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest
 ```
 
-**NOTE: This fails at:***
+**NOTE: This currently fails with:***
 
 `main.go:46: error during command execution: signing [localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest]: getting signer: getting key from Fulcio: verifying SCT: error verifying local metadata; local cache may be corrupt: tuf: file not found: ctfe.pub`
+
+## 4.0: Appendix
+
+### 4.1: Resuming the tutorial
+
+If you have rebooted and wish to bring the local sigstore stack up again, you can do so if you have checked out this repository and have [tmux](https://github.com/tmux/tmux/wiki) installed:
+
+```shell
+sh launch-sigstore.sh
+```
+
+### 4.2: Unistalling the local sigstore installation
+
+After killing any daemons started:
+
+```shell
+sudo mysql -u root -e "DROP DATABASE IF EXISTS test;"
+rm -Rf $HOME/sigstore-local
+```
+
