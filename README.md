@@ -14,12 +14,13 @@ Similar in concept to [Dante's Inferno](https://en.wikipedia.org/wiki/Inferno_(D
 
 ## Environment
 
-This tutorial involves launching several foreground processes, so I highly recommend a terminal multiplexer such as [tmux](https://github.com/tmux/tmux/wiki) or [screen](https://www.gnu.org/software/screen/). For your convenience, this repository includes a [script](launch-sigstore.sh) to relaunch the daemons within a tmux session at the completion of the tutorial.
+This tutorial involves launching several foreground services, so I highly recommend a terminal multiplexer such as [tmux](https://github.com/tmux/tmux/wiki) or [screen](https://www.gnu.org/software/screen/). For your convenience, this repository includes a [script](launch-sigstore.sh) to relaunch the daemons within a tmux session at the completion of the tutorial.
 
 ## Installation of non-sigstore prerequisites
 
 Installing the full-stack requires the Go programming language, a SQL database, and a handful of security tools:
 
+* Arch Linux: `sudo pacman -S mariadb git softhsm opensc go`
 * Debian|Ubuntu: `sudo apt-get install -y mariadb-server git softhsm2 opensc`
 * Fedora: `sudo dnf install mariadb-server git go softhsm opensc`
 * FreeBSD: `doas pkg install mariadb105-server git softhsm2 opensc`
@@ -55,21 +56,23 @@ $HOME/go/bin/registry
 
 For this demo, we're going to build the rekor-cli tool into an unsigned image and push it locally.
 
-Check out rekor codebase:
+Check out rekor codebase, and use `ko` to build and push an unsigned image to our local registry:
 
 ```shell
 mkdir -p $HOME/sigstore-local/src
 cd $HOME/sigstore-local/src
 git clone https://github.com/sigstore/rekor.git
 
-```
-
-We'll use `ko` to build and push the image, as it does not require Docker or Podman to be installed:
-
-```shell
 go install github.com/google/ko@latest
 cd $HOME/sigstore-local/src/rekor/cmd
 KO_DOCKER_REPO=localhost:1338/demo $HOME/go/bin/ko publish ./rekor-cli
+```
+
+Here is what successful output looks like:
+
+```
+2022/02/03 11:37:52 Published localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9@sha256:35b25714b56211d548b97a858a1485b254228fe9889607246e96ed03ed77017d
+localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9@sha256:35b25714b56211d548b97a858a1485b254228fe9889607246e96ed03ed77017d
 ```
 
 ### 1.3: Keyed-signing with cosign
@@ -80,7 +83,7 @@ Install the latest release:
 go install github.com/sigstore/cosign/cmd/cosign@latest
 ```
 
-The most basic usage of cosign uses a local keypair. You can use any password you like:
+The most basic usage of cosign uses a local keypair. You can use any password you like, even an empty one:
 
 ```shell
 cd $HOME/sigstore-local
@@ -111,15 +114,17 @@ The following checks were performed on each of these signatures:
 [{"critical":{"identity":{"docker-reference":"localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9"},"image":{"docker-manifest-digest":"sha256:3a46c2e44bfe8ea0231af6ab2f7adebd0bab4a892929b307c0b48d6958863a4d"},"type":"cosign container image signature"},"optional":null}]
 ```
 
-It is also possible to sign binaries or other blobs of text using `cosign`, see [Working with other artifacts](https://github.com/sigstore/cosign/#working-with-other-artifacts).
-
+Congratulations! You have signed your first container using sigstore. It is also possible to sign binaries or other blobs of text using `cosign`, see [Working with other artifacts](https://github.com/sigstore/cosign/#working-with-other-artifacts).
 
 ## 2.0: Certificate Transparency with Rekor
+
+The way we've signed a container so far only relies on a single mutable source of truth: the container registry. With Rekor, we introduce a second immutable source of truth to verify signatures against.
 
 ### 2.1: Creating a database backend with MariaDB
 
 While Sigstore can use multiple database backends, this tutorial uses MariaDB. Assuming you've installed the pre-requisites though, we can run the following to start the database up locally in a locked-down fashion:
 
+* Arch: `sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql; sudo systemctl start mariadb && sudo mysql_secure_installation`
 * OpenBSD: `doas mysql_install_db && doas rcctl start mysqld && doas mysql_secure_installation`
 * Debian: `sudo mysql_secure_installation`
 * Fedora: `sudo systemctl start mariadb && sudo mysql_secure_installation`
@@ -169,8 +174,7 @@ Rekor is sigstore's certificate transparency backend. Install it from source:
 
 ```shell
 cd $HOME/sigstore-local/src/rekor
-pushd cmd/rekor-cli && go install && popd
-pushd cmd/rekor-server && go install && popd
+go install ./cmd/rekor-cli ./cmd/rekor-server
 ```
 
 Start rekor:
@@ -219,13 +223,73 @@ COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign verify --key $HOME/sigstore-local/cosi
 
 ```
 
-Rekor will in-turn rely on both the OCI metadata, as well as Trillian and the MariaDB database we setup earlier to verify the certificate.
+Rekor will in-turn rely on both the OCI metadata, as well as Trillian and the MariaDB database we setup earlier to verify the certificate. Success looks like:
+
+```
+Verification for localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest --
+The following checks were performed on each of these signatures:
+  - The cosign claims were validated
+  - The claims were present in the transparency log
+  - The signatures were integrated into the transparency log when the certificate was valid
+  - The signatures were verified against the specified public key
+  - Any certificates were verified against the Fulcio roots.
+
+[{"critical":{"identity":{"docker-reference":"localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9"},"image":{"docker-manifest-digest":"sha256:35b25714b56211d548b97a858a1485b254228fe9889607246e96ed03ed77017d"},"type":"cosign container image signature"},"optional":{"Bundle":{"SignedEntryTimestamp":"MEUCIGhbOHcduQOWrsL8CaAHeSB1pQXintGyo2OlEs7yflWcAiEA2Wk/WeT5GOpYkpV2bZzaZBEt925W00VOAE/aHi7yoIY=","Payload":{"body":"eyJhcGlWZXJzaW9uIjoiMC4wLjEiLCJraW5kIjoiaGFzaGVkcmVrb3JkIiwic3BlYyI6eyJkYXRhIjp7Imhhc2giOnsiYWxnb3JpdGhtIjoic2hhMjU2IiwidmFsdWUiOiI4Yzg1YjNhMjQ5Y2I1MjNlYTNiYjRiM2RiN2RmMTc0Zjc0ZjI0NGJiNmJmN2QyNjI3ZjJjNTZlNmYzZjliZmQzIn19LCJzaWduYXR1cmUiOnsiY29udGVudCI6Ik1FWUNJUUM4NXZrMEoxQ0dCdFVGMEtBVXpCOHRCWG10TzkreFNQS2NldG4wYm52eGVnSWhBT0lnWG9Xa3FoR2FiWm8xRFFUem5GaTFKRU5vL0VvSDg5bGh0OWthZWNpOCIsInB1YmxpY0tleSI6eyJjb250ZW50IjoiTFMwdExTMUNSVWRKVGlCUVZVSk1TVU1nUzBWWkxTMHRMUzBLVFVacmQwVjNXVWhMYjFwSmVtb3dRMEZSV1VsTGIxcEplbW93UkVGUlkwUlJaMEZGY0d0WWFITTNSWGxoY1V0V1VsbFdMMkZ3Y0RsVE4ybGtNRTFxZVFwaU5sTXZiMnhIWkhoeWJuSnVaakZ3VlU5eFVFbFRVVzlWYVZseE1WTjRURUpvVEVWaFp6aHJTSFV2WTA1dlpUQllXR2g0VURGdGRHcDNQVDBLTFMwdExTMUZUa1FnVUZWQ1RFbERJRXRGV1MwdExTMHRDZz09In19fX0=","integratedTime":1643917737,"logIndex":1,"logID":"4d2e4729bc008d76b4962364d19fe3f7a7b7bd58627bbafa0c19d9eac9797291"}}}}]
+```
+
+If you got this far - feel free to take an ice cream break. You earned it!
 
 ## 3.0: Keyless signing with Fulcio (EXPERIMENTAL)
 
-### 3.1: Setting up SoftHSM
+### 3.1: Install Fulcio
 
-SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module.
+fulcio is a free Root-CA for code signing certs, issuing certificates based on an OIDC email address. To install it from source:
+
+```shell
+cd $HOME/sigstore-local/src
+git clone https://github.com/sigstore/fulcio.git
+cd fulcio
+go install .
+```
+
+### 3.1: Configure SoftHSM
+
+SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. For this demo, we will configure sigstore to reference tokens in $HOME/sigstore-local/tokens:
+
+``shell
+mkdir -p $HOME/sigstore-local/tokens
+printf "\
+directories.tokendir = $HOME/sigstore-local/tokens
+log.level = DEBUG
+" > $HOME/sigstore-local/softhsm2.conf
+export SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf
+```
+
+Create your first HSM token:
+
+```shell
+softhsm2-util --init-token --slot 0 --label fulcio
+```
+
+Set the pin to `2324`, and then save the resulting configuration file for later use by fulcio:
+
+### 3.2: Create a CA certificate with OpenSC
+
+Configure OpenSC:
+
+* (FreeBSD|OpenBSD|NetBSD): `export PKCS11_MOD=/usr/local/lib/softhsm/libsofthsm2.so`
+* (Arch|Debian|Ubuntu): `export PKCS11_MOD=/usr/lib/softhsm/libsofthsm2.so`
+* Fedora: `export PKCS11_MOD=/usr/lib64/libsofthsm2.so`
+* macOS: `export PKCS11_MOD=$(brew --prefix softhsm)/lib/softhsm/libsofthsm2.so`
+
+Write out a configuration file to be used by the pkcs11 crypto library:
+
+```shell
+mkdir -p $HOME/sigstore-local/config
+echo "{ \"Path\": \"$PKCS11_MOD\", \"TokenLabel\": \"fulcio\", \"Pin\": \"2324\" }" > $HOME/sigstore-local/config/crypto11.conf
+```
+
+Save your key into the HSM:
 
 ```shel
 SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf pkcs11-tool \
@@ -252,44 +316,52 @@ SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio createca \
   --out $HOME/sigstore-local/ca-root.pem
 ```
 
-## 3.3: Installing the Certificate Transparency Frontend
+## 3.3: Install the Certificate Transparency Frontend
 
-```shevll
+```shell
 go install github.com/google/certificate-transparency-go/trillian/ctfe/ct_server@latest
 ```
 
-Next we need to setup a private key. I'll use 2324 again, but you can use anything so long as you remember the passphrase:
+Next we need to setup a private key. I'll use 2324 again, but you can use anything 4-characters or longer:
+
 
 ```shell
 cd $HOME/sigstore-local
-openssl ecparam -genkey -name prime256v1 -noout -out unenc.key
-openssl ec -in unenc.key -out privkey.pem -des
-rm unenc.key
+openssl ecparam -genkey -name prime256v1 -noout -out ct_unenc.key
+openssl ec -in ct_unenc.key -out ct_private.pem -des
+openssl ec -in ct_unenc.key -out ct_public.pem -pubout -des
+rm ct_unenc.key
+```
+
+Store the password as a shell variable:
+
+```shell
+export PASS=<password entered>
 ```
 
 Look up the Trillian log ID we previously created, and set the LOG_ID variable to the resulting value:
 
 ```shell
 cat $HOME/sigstore-local/trillian.log_id
-
+export LOG_ID=<value of trillian.log_id>
 ```
 
-Then populate the Certificate Transparency configuration file, filling <password> in with the certificate password you just used:
+Then populate the Certificate Transparency configuration file. It will fill in the password and log id:
 
 ```shell
-LOG_ID=<result> PASS=<password> printf "\
+printf "\
 config {
   log_id: $LOG_ID
   prefix: \"sigstore\"
   roots_pem_file: \"$HOME/sigstore-local/ca-root.pem\"
   private_key: {
     [type.googleapis.com/keyspb.PEMKeyFile] {
-       path: \"$HOME/sigstore-local/privkey.pem\"
+       path: \"$HOME/sigstore-local/ct_private.pem\"
        password: \"$PASS\"
     }
   }
 }
-" > $HOME/sigstore-local/ct.cfg
+" | tee $HOME/sigstore-local/ct.cfg
 ```
 
 Start the certificate transparency server:
@@ -302,10 +374,7 @@ If successful, the output will look like:
 
 ```
 I0128 11:42:16.401794   65425 main.go:121] **** CT HTTP Server Starting ****
-I0128 11:42:16.401907   65425 main.go:174] Using regular DNS resolver
-I0128 11:42:16.401915   65425 main.go:181] Dialling backend: name:"default" backend_spec:"localhost:8091"
-I0128 11:42:16.510549   65425 main.go:306] Enabling quota for requesting IP
-I0128 11:42:16.510562   65425 main.go:316] Enabling quota for intermediate certificates
+...
 I0128 11:42:16.511090   65425 instance.go:85] Start internal get-sth operations on sigstore (8494167753837750461)
 ```
 
@@ -325,12 +394,18 @@ For this demonstration, we'll use GitHub to authenticate requests. Visit [GitHub
 
 * Application Name: `My Local Sigstore Adventure`
 * Homepage URL, use `http://localhost/`
-* Authorization callback URL: `http://localhost:5556/auth/callback`
+* Authorization callback URL: `http://localhost:5556/callback`
 
-When you click **Register Application**, it will output a client ID and secret. Save them to your environment:
+When you click **Register Application**, it will output a client ID. Save it to your environment:
 
 ```shell
-export GITHUB_CLIENT_ID=<your ID> GITHUB_CLIENT_SECRET=<your secret>
+export GITHUB_CLIENT_ID=<your id>
+```
+
+Click the `Generate a new client secret` button, and copy the long alphanumeric string it emits into your environment:
+
+```shell
+export GITHUB_CLIENT_SECRET=<your client secret>
 ```
 
 Create a Dex configuration which answer local OAuth requests, delegating the authentication to GitHub:
@@ -371,7 +446,7 @@ connectors:
      clientID: $GITHUB_CLIENT_ID
      clientSecret: $GITHUB_CLIENT_SECRET
      redirectURI: http://localhost:5556/callback
-" > $HOME/sigstore-local/dex-config.yaml
+" | tee $HOME/sigstore-local/dex-config.yaml
 ```
 
 Start dex:
@@ -381,15 +456,6 @@ $HOME/go/bin/dex serve $HOME/sigstore-local/dex-config.yaml
 ```
 
 ### 3.5: Setting up Fulcio for key-less signatures
-
-fulcio is a free Root-CA for code signing certs, issuing certificates based on an OIDC email address. To install it from source:
-
-```shell
-cd $HOME/sigstore-local/src
-git clone https://github.com/sigstore/fulcio.git
-cd fulcio
-go install .
-```
 
 Populate the Fulcio configuration file:
 
@@ -420,7 +486,7 @@ If it is working, you will see a message similar to:
 
 `2022-01-27T16:35:11.359-0800	INFO	app/serve.go:173	127.0.0.1:5000`
 
-### 3.6: Bring-your-own TUF
+### 3.6: Bring-your-own TUF root
 
 Cosign uses TUF as a root of trust, so we're going to need to set it up locally for key verification. Install the tuf command-line:
 
@@ -456,6 +522,7 @@ Download our local certificates:
 ```shell
 curl -o staged/targets/rekor.pub http://localhost:3000/api/v1/log/publicKey
 curl -o staged/targets/fulcio.crt.pem http://localhost:5000/api/v1/rootCert
+cp $HOME/sigstore-local/ct_public.pem staged/targets/ctfe.pub
 $HOME/go/bin/tuf add
 $HOME/go/bin/tuf snapshot
 $HOME/go/bin/tuf timestamp
@@ -487,6 +554,8 @@ SSL_CERT_FILE=$HOME/sigstore-local/ca-root.pem COSIGN_EXPERIMENTAL=1 $HOME/go/bi
    --rekor-url=http://localhost:3000 \
    localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest
 ```
+
+**NOTE: Tutorial currently fails here for unknown reasons: `getting signer: getting key from Fulcio: verifying SCT: failed to verify ECDSA signature`**
 
 With any luck, you'll authenticate against GitHub, and get as far as this error message:
 
