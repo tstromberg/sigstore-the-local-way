@@ -24,7 +24,6 @@ DEX="$HOME/go/bin/dex serve $HOME/sigstore-local/dex-config.yaml"
 FULCIO="$HOME/go/bin/fulcio serve --config-path=config/fulcio.json --ca=pkcs11ca --hsm-caroot-id=1 --ct-log-url=http://localhost:6105/sigstore --host=127.0.0.1 --port=5000"
 CT="$HOME/go/bin/ct_server -logtostderr -log_config $HOME/sigstore-local/ct.cfg -log_rpc_server localhost:8091 -http_endpoint 127.0.0.1:6105"
 REGISTRY="$HOME/go/bin/registry"
-TUF="cd $HOME/sigstore-local/tuf/repository && python3 -m http.server --bind 127.0.0.1 8081"
 
 if [ ! -f "$SOFTHSM2_CONF" ]; then
   echo "Exiting as $SOFTHSM2_CONF does not exist (did you finish the tutorial?)"
@@ -74,9 +73,6 @@ tmux send-keys -t "=$SESSION:=fulcio" "$FULCIO" Enter
 
 tmux new-window -d -t "=$SESSION" -n ct
 tmux send-keys -t "=$SESSION:=ct" "$CT" Enter
-
-tmux new-window -d -t "=$SESSION" -n tuf
-tmux send-keys -t "=$SESSION:=tuf" "$TUF" Enter
 
 attach
 
