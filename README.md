@@ -1,4 +1,4 @@
-# sigstore-the-local-way (UNDER DEVELOPMENT)
+# sigstore-the-local-way
 
 This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions. This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way) and [Bring-your-own sTUF with TUF](https://blog.sigstore.dev/sigstore-bring-your-own-stuf-with-tuf-40febfd2badd) with the following changes:
 
@@ -125,13 +125,13 @@ The way we've signed a container so far only relies on a single mutable source o
 While Sigstore can use multiple database backends, this tutorial uses MariaDB. Assuming you've installed the pre-requisites though, we can run the following to start the database up locally in a locked-down fashion:
 
 * Arch: `sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql; sudo systemctl start mariadb && sudo mysql_secure_installation`
-* OpenBSD: `doas mysql_install_db && doas rcctl start mysqld && doas mysql_secure_installation`
-* Debian: `sudo mysql_secure_installation`
+* Debian|Ubuntu: `sudo mysql_secure_installation`
 * Fedora: `sudo systemctl start mariadb && sudo mysql_secure_installation`
-* FreeBSD: TODO
+* FreeBSD: `sudo sudo service mysql-server start && sudo mysql_secure_installation`
 * macOS: `sudo brew services start mariadb && sudo mysql_secure_installation`
+* OpenBSD: `doas mysql_install_db && doas rcctl start mysqld && doas mysql_secure_installation`
 
-During the secure script, I recommend the following answers: `nYYYY`. Once complete, create the database tables which Trillian will need:
+During the secure script, I recommend skipping the password change, but answering "YES" to everything else. Once complete, create the database tables which Trillian will need:
 
 ```shell
 cd $HOME/sigstore-local/src/rekor/scripts
