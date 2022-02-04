@@ -71,8 +71,8 @@ KO_DOCKER_REPO=localhost:1338/demo $HOME/go/bin/ko publish ./rekor-cli
 Here is what successful output looks like:
 
 ```
-2022/02/03 11:37:52 Published localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9@sha256:35b25714b56211d548b97a858a1485b254228fe9889607246e96ed03ed77017d
-localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9@sha256:35b25714b56211d548b97a858a1485b254228fe9889607246e96ed03ed77017d
+2022/02/03 15:38:35 Published localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9@sha256:184a7313e59492c366e505acdb91eeeca0abdbc40281c0dd4933aab161179760
+localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9@sha256:184a7313e59492c366e505acdb91eeeca0abdbc40281c0dd4933aab161179760
 ```
 
 ### 1.3: Keyed-signing with cosign
@@ -211,7 +211,6 @@ Sign a container image uploading keys to rekor:
 COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign --key $HOME/sigstore-local/cosign.key \
   --rekor-url=http://localhost:3000 \
   localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9
-
 ```
 
 Verify the container against the OCI attestation and the Rekor record:
@@ -237,6 +236,8 @@ The following checks were performed on each of these signatures:
 [{"critical":{"identity":{"docker-reference":"localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9"},"image":{"docker-manifest-digest":"sha256:35b25714b56211d548b97a858a1485b254228fe9889607246e96ed03ed77017d"},"type":"cosign container image signature"},"optional":{"Bundle":{"SignedEntryTimestamp":"MEUCIGhbOHcduQOWrsL8CaAHeSB1pQXintGyo2OlEs7yflWcAiEA2Wk/WeT5GOpYkpV2bZzaZBEt925W00VOAE/aHi7yoIY=","Payload":{"body":"eyJhcGlWZXJzaW9uIjoiMC4wLjEiLCJraW5kIjoiaGFzaGVkcmVrb3JkIiwic3BlYyI6eyJkYXRhIjp7Imhhc2giOnsiYWxnb3JpdGhtIjoic2hhMjU2IiwidmFsdWUiOiI4Yzg1YjNhMjQ5Y2I1MjNlYTNiYjRiM2RiN2RmMTc0Zjc0ZjI0NGJiNmJmN2QyNjI3ZjJjNTZlNmYzZjliZmQzIn19LCJzaWduYXR1cmUiOnsiY29udGVudCI6Ik1FWUNJUUM4NXZrMEoxQ0dCdFVGMEtBVXpCOHRCWG10TzkreFNQS2NldG4wYm52eGVnSWhBT0lnWG9Xa3FoR2FiWm8xRFFUem5GaTFKRU5vL0VvSDg5bGh0OWthZWNpOCIsInB1YmxpY0tleSI6eyJjb250ZW50IjoiTFMwdExTMUNSVWRKVGlCUVZVSk1TVU1nUzBWWkxTMHRMUzBLVFVacmQwVjNXVWhMYjFwSmVtb3dRMEZSV1VsTGIxcEplbW93UkVGUlkwUlJaMEZGY0d0WWFITTNSWGxoY1V0V1VsbFdMMkZ3Y0RsVE4ybGtNRTFxZVFwaU5sTXZiMnhIWkhoeWJuSnVaakZ3VlU5eFVFbFRVVzlWYVZseE1WTjRURUpvVEVWaFp6aHJTSFV2WTA1dlpUQllXR2g0VURGdGRHcDNQVDBLTFMwdExTMUZUa1FnVUZWQ1RFbERJRXRGV1MwdExTMHRDZz09In19fX0=","integratedTime":1643917737,"logIndex":1,"logID":"4d2e4729bc008d76b4962364d19fe3f7a7b7bd58627bbafa0c19d9eac9797291"}}}}]
 ```
 
+
+
 If you got this far - feel free to take an ice cream break. You earned it!
 
 ## 3.0: Keyless signing with Fulcio (EXPERIMENTAL)
@@ -256,12 +257,14 @@ go install .
 
 SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. For this demo, we will configure sigstore to reference tokens in $HOME/sigstore-local/tokens:
 
-``shell
+```shell
 mkdir -p $HOME/sigstore-local/tokens
+
 printf "\
 directories.tokendir = $HOME/sigstore-local/tokens
 log.level = DEBUG
 " > $HOME/sigstore-local/softhsm2.conf
+
 export SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf
 ```
 
@@ -291,7 +294,7 @@ echo "{ \"Path\": \"$PKCS11_MOD\", \"TokenLabel\": \"fulcio\", \"Pin\": \"2324\"
 
 Save your key into the HSM:
 
-```shel
+```shell
 SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf pkcs11-tool \
   --module=$PKCS11_MOD \
   --login \
@@ -305,6 +308,7 @@ SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf pkcs11-tool \
 Create a CA root certificate:
 
 ```shell
+cd $HOME/sigstore-local
 SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio createca \
   --org=acme \
   --country=USA \
@@ -313,7 +317,7 @@ SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio createca \
   --postal-code=ABCDEF \
   --street-address="123 Main St" \
   --hsm-caroot-id 1 \
-  --out $HOME/sigstore-local/ca-root.pem
+  --out ca-root.pem
 ```
 
 ## 3.3: Install the Certificate Transparency Frontend
@@ -486,100 +490,42 @@ If it is working, you will see a message similar to:
 
 `2022-01-27T16:35:11.359-0800	INFO	app/serve.go:173	127.0.0.1:5000`
 
-### 3.6: Bring-your-own TUF root
-
-Cosign uses TUF as a root of trust, so we're going to need to set it up locally for key verification. Install the tuf command-line:
-
-```shell
-go install github.com/theupdateframework/go-tuf/cmd/tuf@latest
-```
-
-Create a local tuf repository:
-
-```shell
-mkdir -p $HOME/sigstore-local/tuf
-cd $HOME/sigstore-local/tuf
-$HOME/go/bin/tuf init --consistent-snapshot=false
-```
-
-Now generate keys for the various roles. Since we are using this for testing purposes, you can get away with an empty passphrase if you like:
-
-```shell
-$HOME/go/bin/tuf gen-key root
-$HOME/go/bin/tuf gen-key targets
-$HOME/go/bin/tuf gen-key snapshot
-$HOME/go/bin/tuf gen-key timestamp
-```
-
-Sign the root key metadata (references `keys/root.json`):
-
-```shell
-$HOME/go/bin/tuf sign root.json
-```
-
-Download our local certificates:
-
-```shell
-curl -o staged/targets/rekor.pub http://localhost:3000/api/v1/log/publicKey
-curl -o staged/targets/fulcio.crt.pem http://localhost:5000/api/v1/rootCert
-cp $HOME/sigstore-local/ct_public.pem staged/targets/ctfe.pub
-$HOME/go/bin/tuf add
-$HOME/go/bin/tuf snapshot
-$HOME/go/bin/tuf timestamp
-$HOME/go/bin/tuf commit
-```
-
-Run a local webserver to make the TUF keys fetcheable:
-
-```shell
-cd repository
-python3 -m http.server --bind 127.0.0.1 8081
-```
-
-### 3.7: Keyless signing with cosign
+### 3.5: Local Keyless Signing
 
 Now we will try to use some experimental features of Fulcio: Integration with the Rekor transparency log and keyless signatures using the Fulcio CA. Fulcio will uinstead rely on a combination of certificates stored in SoftHSM and the OIDC tokens provided by Dex and Github:
 
-
 **NOTE: If you running cosign on a non-local machine, wait 2 minutes for the `Enter verification code` prompt, and then forward the Dex webserver port to your local workstation using `ssh -L 5556:127.0.0.1:5556 <dex server>`. Then you can visit the URL it outputs and manually enter in the verification code.**
-
-Add the fulcio-root certificate to our trust list:
 
 Sign the container with our local certificate:
 
 ```shell
-SSL_CERT_FILE=$HOME/sigstore-local/ca-root.pem COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign \
-   --oidc-issuer=http://localhost:5556 \
-   --fulcio-url=http://localhost:5000 \
-   --rekor-url=http://localhost:3000 \
-   localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest
+SIGSTORE_CT_LOG_PUBLIC_KEY_FILE=$HOME/sigstore-local/ct_public.pem \
+  COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign \
+      --oidc-issuer=http://localhost:5556 \
+      --fulcio-url=http://localhost:5000 \
+      --rekor-url=http://localhost:3000 \
+      localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9
 ```
 
-**NOTE: Tutorial currently fails here for unknown reasons: `getting signer: getting key from Fulcio: verifying SCT: failed to verify ECDSA signature`**
+Successful output will look like:
 
-With any luck, you'll authenticate against GitHub, and get as far as this error message:
+```
+**Warning** Using a non-standard public key for verifying SCT: /home/t/sigstore-local/ct_public.pem
+Successfully verified SCT...
+tlog entry created with index: 17
+Pushing signature to: localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9
+```
 
-`main.go:46: error during command execution: signing [localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest]: getting signer: getting key from Fulcio: verifying SCT: failed to verify ECDSA signature`
-
-This is because we haven't told cosign to trust our local TUF instance. To do so, run:
+Verify the certificate:
 
 ```shell
-cosign initialize  --mirror=http://localhost:8081 --root $HOME/sigstore-local/tuf/repository/root.json
+SIGSTORE_ROOT_FILE=$HOME/sigstore-local/ca-root.pem COSIGN_EXPERIMENTAL=1 \
+  $HOME/go/bin/cosign verify --rekor-url=http://localhost:3000 \
+  localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9
 ```
 
-And try again:
+Congratulations! You made it!
 
-```shell
-SSL_CERT_FILE=$HOME/sigstore-local/ca-root.pem COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign \
-   --oidc-issuer=http://localhost:5556 \
-   --fulcio-url=http://localhost:5000 \
-   --rekor-url=http://localhost:3000 \
-   localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest
-```
-
-**NOTE: This currently fails with:***
-
-`main.go:46: error during command execution: signing [localhost:1338/local/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest]: getting signer: getting key from Fulcio: verifying SCT: error verifying local metadata; local cache may be corrupt: tuf: file not found: ctfe.pub`
 
 ## 4.0: Appendix
 
@@ -597,6 +543,6 @@ After killing any daemons started:
 
 ```shell
 sudo mysql -u root -e "DROP DATABASE IF EXISTS test;"
-rm -Rf $HOME/sigstore-local
+rm -Rf $HOME/sigstore-local $HOME/.sigstore
 ```
 
