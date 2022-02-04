@@ -1,12 +1,13 @@
 # sigstore-the-local-way
 
-This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions. This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way) and [Bring-your-own sTUF with TUF](https://blog.sigstore.dev/sigstore-bring-your-own-stuf-with-tuf-40febfd2badd) with the following changes:
+This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions. If all goes well, you can compelete this tutorial in about 15 minutes!
+
+This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way), but differs from it a bit:
 
 * Simpler: Skips steps unnecessary for local use (provisioning nodes, DNS, HAProxy, Certbot)
-* Updated: Incorporates the latest changes to sigstore
 * Cross-platform: Initially developed on [OpenBSD](https://openbsd.org/), and compatible with most UNIX-like operating systems and shells
 
-Similar in concept to [Dante's Inferno](https://en.wikipedia.org/wiki/Inferno_(Dante)), this tutorial adventures through the 3-circles of sigstore:
+Similar to [Dante's Inferno](https://en.wikipedia.org/wiki/Inferno_(Dante)), this tutorial adventures through the 3-circles of sigstore:
 
 1. Signing and verifying a container using a local OCI registry
 2. Signing and verifying a container using a local OCI registry + Rekor
@@ -516,6 +517,8 @@ tlog entry created with index: 17
 Pushing signature to: localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9
 ```
 
+NOTE: If you get a `NAME_UNKNOWN: Unknown name` error, re-run the `ko publish` command in step 1.2.
+
 Verify the certificate:
 
 ```shell
@@ -525,7 +528,6 @@ SIGSTORE_ROOT_FILE=$HOME/sigstore-local/ca-root.pem COSIGN_EXPERIMENTAL=1 \
 ```
 
 Congratulations! You made it!
-
 
 ## 4.0: Appendix
 
@@ -543,6 +545,5 @@ After killing any daemons started:
 
 ```shell
 sudo mysql -u root -e "DROP DATABASE IF EXISTS test;"
-rm -Rf $HOME/sigstore-local $HOME/.sigstore
+rm -Rf $HOME/sigstore-local
 ```
-
