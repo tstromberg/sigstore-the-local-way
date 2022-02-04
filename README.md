@@ -92,7 +92,7 @@ cd $HOME/sigstore-local
 $HOME/go/bin/cosign generate-key-pair
 ```
 
-Sign the container we just published: 
+Sign the container we just published:
 
 ```shell
 $HOME/go/bin/cosign sign --key cosign.key localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest
@@ -118,9 +118,11 @@ The following checks were performed on each of these signatures:
 
 Congratulations! You have signed your first container using sigstore. It is also possible to sign binaries or other blobs of text using `cosign`, see [Working with other artifacts](https://github.com/sigstore/cosign/#working-with-other-artifacts).
 
-## 2.0: Certificate Transparency with Rekor
+## Act II: Certificate Transparency with Rekor
 
 The way we've signed a container so far only relies on a single mutable source of truth: the container registry. With Rekor, we will introduce a second immutable source of truth to the system.
+
+![Rekor signing diagram](images/sigstore-rekor.svg)
 
 ### 2.1: Creating a database backend with MariaDB
 
@@ -142,7 +144,7 @@ sudo sh -x createdb.sh
 
 ### 2.2: Installing Trillian
 
-Install Trillian, which is an append-only log for storing records:
+Install Trillian, which provides a tamper-proof append-only log based on [Merkle Trees](https://en.wikipedia.org/wiki/Merkle_tree) via a [gRPC](https://grpc.io/) API. The data will be stored in the MariaDB database we created.
 
 ```
 go install github.com/google/trillian/cmd/trillian_log_server@latest
@@ -150,21 +152,20 @@ go install github.com/google/trillian/cmd/trillian_log_signer@latest
 go install github.com/google/trillian/cmd/createtree@latest
 ```
 
-Start the log server:
-
+Start the [log_server](https://rgdd.medium.com/observations-from-a-trillian-play-date-451bccc0aac6), which will provides Trillian API to both Rekor and the Certificate Transparency frontends (also referred to as personalities):
 
 ```shell
 $HOME/go/bin/trillian_log_server -http_endpoint=localhost:8090 -rpc_endpoint=localhost:8091 --logtostderr
 ```
 
-Start the log signer:
+Start the log signer, which periodically checks the database and [sequences the data into a merkle tree](https://rgdd.medium.com/trillian-log-sequencing-demystified-a3b5097b6547):
 
 
 ```shell
 $HOME/go/bin/trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8190 -rpc_endpoint=localhost:8191
 ```
 
-The Trillian system is multi-tenant and can support multiple independent Merkle trees. Create the tree, and save the resulting log_id for future use:
+The Trillian system is multi-tenant and can support multiple independent Merkle trees. Run this command to send a gRPC request to create a tree and save the log_id for future use:
 
 ```shell
 $HOME/go/bin/createtree --admin_server localhost:8091 | tee $HOME/sigstore-local/trillian.log_id
