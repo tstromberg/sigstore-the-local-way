@@ -1,10 +1,10 @@
 # sigstore-the-local-way
 
-This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions. If all goes well, you can compelete this tutorial in about 15 minutes!
+The sigstore-the-local-way tutorial will teach you how to setup sigstore locally and can be completed in about 15 minutes.
 
-This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way), and greatly simplifies it for a local usage without skipping any of the sigstore-specific steps.For example, this tutorial omits any steps relating to provisioning services via the Google Cloud Platform, DNS updates, HAProxy, or Certbot. This new tutorial has also modified for cross-platform use, and was developed intiially using [OpenBSD](https://www.openbsd.org/) and (fish)[https://fishshell.com/].
+It's heavily based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way), though simplified for local use without skipping any of the sigstore-specific steps. For example, this tutorial omits actions relating to provisioning services via the Google Cloud Platform, DNS updates, HAProxy, or Certbot. This new tutorial has also been modified for cross-platform use and was developed using [OpenBSD](https://www.openbsd.org/) and (fish)[https://fishshell.com/].
 
-This tutorial explores 3 levels of signing & verification that sigstore makes available, adding new dependencies each time:
+This tutorial explores three levels of signing & verification that sigstore makes available, adding new dependencies each time:
 
 1. Signing and verifying a container using a local OCI registry
 2. Signing and verifying a container using a local OCI registry + Rekor
@@ -12,10 +12,9 @@ This tutorial explores 3 levels of signing & verification that sigstore makes av
 
 ## Environment
 
-This tutorial involves launching several foreground services, so it is highly recommended that you use a 
-a terminal multiplexer such as [tmux](https://github.com/tmux/tmux/wiki) or [screen](https://www.gnu.org/software/screen/).
+This tutorial involves launching several foreground services, so you are best off using a terminal multiplexer such as [tmux](https://github.com/tmux/tmux/wiki) or [screen](https://www.gnu.org/software/screen/).
 
-As an added bonus, this repository includes a [launch script](launch-sigstore.sh) to relaunch the sigstore stack at any time once the tutorial has been completed. 
+As a bonus, this repository includes a [launch script](launch-sigstore.sh) to relaunch the sigstore stack at any time after the completion of the tutorial.
 
 ## Installation of non-sigstore prerequisites
 
@@ -47,7 +46,7 @@ While sigstore can use any Container Registry, in the interest of keeping things
 go install github.com/google/go-containerregistry/cmd/registry@latest
 ```
 
-This will begin the local registry - emitting no output until artifacts are stored:
+This command will start a local registry - emitting no output until artifacts are stored:
 
 ```shell
 $HOME/go/bin/registry
@@ -55,9 +54,9 @@ $HOME/go/bin/registry
 
 ### 1.2: Pushing an unsigned image to the local registry
 
-For this demo, we're going to build the rekor-cli tool into an unsigned image and push it locally.
+For this demo, we will build the rekor-cli tool into an unsigned image and push it locally.
 
-Check out rekor codebase, and use `ko` to build and push an unsigned image to our local registry:
+Check out the rekor codebase, and use `ko` to build and push an unsigned image to our local registry:
 
 ```shell
 mkdir -p $HOME/sigstore-local/src
@@ -84,7 +83,7 @@ Install the latest release:
 go install github.com/sigstore/cosign/cmd/cosign@latest
 ```
 
-The most basic usage of cosign uses a local keypair. You can use any password you like, even an empty one:
+The most basic usage of cosign uses a local key pair. You can use any password you like, even an empty one:
 
 ```shell
 cd $HOME/sigstore-local
@@ -119,11 +118,11 @@ Congratulations! You have signed your first container using sigstore. It is also
 
 ## 2.0: Certificate Transparency with Rekor
 
-The way we've signed a container so far only relies on a single mutable source of truth: the container registry. With Rekor, we introduce a second immutable source of truth to verify signatures against.
+The way we've signed a container so far only relies on a single mutable source of truth: the container registry. With Rekor, we will introduce a second immutable source of truth to the system.
 
 ### 2.1: Creating a database backend with MariaDB
 
-While Sigstore can use multiple database backends, this tutorial uses MariaDB. Assuming you've installed the pre-requisites though, we can run the following to start the database up locally in a locked-down fashion:
+While Sigstore can use multiple database backends, this tutorial uses MariaDB. Once you've installed the prerequisites, run the following to start the database up locally in a locked-down fashion:
 
 * Arch: `sudo mariadb-install-db --user=mysql --basedir=/usr --datadir=/var/lib/mysql; sudo systemctl start mariadb && sudo mysql_secure_installation`
 * Debian|Ubuntu: `sudo mysql_secure_installation`
@@ -163,7 +162,7 @@ Start the log signer:
 $HOME/go/bin/trillian_log_signer --logtostderr --force_master --http_endpoint=localhost:8190 -rpc_endpoint=localhost:8191
 ```
 
-The Trillian system is multi-tenant, and can support multiple independent Merkle trees. Create the tree, and save the resulting log_id for future use:
+The Trillian system is multi-tenant and can support multiple independent Merkle trees. Create the tree, and save the resulting log_id for future use:
 
 ```shell
 $HOME/go/bin/createtree --admin_server localhost:8091 | tee $HOME/sigstore-local/trillian.log_id
@@ -204,9 +203,7 @@ curl -s http://127.0.0.1:3000/api/v1/log/entries/d2f305428d7c222d7b77f56453dd4b6
 
 ### 2.4: Keyed verifiable signing with Cosign & Rekor
 
-With Rekor setup, we can now sign and upload the signature for our image, and verify against that signature:
-
-Sign a container image uploading keys to rekor:
+With Rekor setup, we can now sign and upload the signature for our image:
 
 ```shell
 COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign --key $HOME/sigstore-local/cosign.key \
@@ -223,7 +220,7 @@ COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign verify --key $HOME/sigstore-local/cosi
 
 ```
 
-Rekor will in-turn rely on both the OCI metadata, as well as Trillian and the MariaDB database we setup earlier to verify the certificate. Success looks like:
+With this invocation, cosign will check the OCI metadata and rekor. Rekor in-turn, will use Trillian and the MariaDB database we setup earlier to verify the certificate. Success looks like this:
 
 ```
 Verification for localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest --
@@ -239,7 +236,7 @@ The following checks were performed on each of these signatures:
 
 
 
-If you got this far - feel free to take an ice cream break. You earned it!
+Feel free to take an ice cream break if you got this far. You earned it!
 
 ## 3.0: Keyless signing with Fulcio (EXPERIMENTAL)
 
@@ -256,7 +253,7 @@ go install .
 
 ### 3.1: Configure SoftHSM
 
-SoftHSM is an implementation of a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. For this demo, we will configure sigstore to reference tokens in $HOME/sigstore-local/tokens:
+SoftHSM implements a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. For this demo, we will configure sigstore to reference tokens in $HOME/sigstore-local/tokens:
 
 ```shell
 mkdir -p $HOME/sigstore-local/tokens
@@ -375,7 +372,7 @@ Start the certificate transparency server:
 $HOME/go/bin/ct_server -logtostderr -log_config $HOME/sigstore-local/ct.cfg -log_rpc_server localhost:8091 -http_endpoint 0.0.0.0:6105
 ```
 
-If successful, the output will look like:
+If successful, the output will look like this:
 
 ```
 I0128 11:42:16.401794   65425 main.go:121] **** CT HTTP Server Starting ****
@@ -385,7 +382,7 @@ I0128 11:42:16.511090   65425 instance.go:85] Start internal get-sth operations 
 
 ### 3.4: Installing Dex for OpenID authentication
 
-Dex is a federated OpenID Connect Provider, which connects OpenID identities together from multiple providers to drive authentication for other apps. Dex will serve as your OIDC issuer. Unfortunately, Dex doesn't support `go install` so you need to build it manually:
+Dex is a federated OpenID Connect Provider, which connects OpenID identities from multiple providers to drive authentication for other apps. Dex will serve as your OIDC issuer. Unfortunately, Dex doesn't support `go install`, so you need to build it manually:
 
 ```shell
 cd $HOME/sigstore-local/src
@@ -413,7 +410,7 @@ Click the `Generate a new client secret` button, and copy the long alphanumeric 
 export GITHUB_CLIENT_SECRET=<your client secret>
 ```
 
-Create a Dex configuration which answer local OAuth requests, delegating the authentication to GitHub:
+Create a Dex configuration that answers local OAuth requests, delegating the authentication to GitHub:
 
 ```shell
 printf "\
@@ -493,9 +490,9 @@ If it is working, you will see a message similar to:
 
 ### 3.5: Local Keyless Signing
 
-Now we will try to use some experimental features of Fulcio: Integration with the Rekor transparency log and keyless signatures using the Fulcio CA. Fulcio will uinstead rely on a combination of certificates stored in SoftHSM and the OIDC tokens provided by Dex and Github:
+Now let's try some experimental cosign features: Integration with the Rekor transparency log and keyless signatures using the Fulcio CA. Fulcio will instead rely on a combination of certificates stored in SoftHSM and the OIDC tokens provided by Dex and Github:
 
-**NOTE: If you running cosign on a non-local machine, wait 2 minutes for the `Enter verification code` prompt, and then forward the Dex webserver port to your local workstation using `ssh -L 5556:127.0.0.1:5556 <dex server>`. Then you can visit the URL it outputs and manually enter in the verification code.**
+**NOTE: If you are running cosign on a non-local machine, wait 2 minutes for the `Enter verification code` prompt, and then forward the Dex webserver port to your local workstation using `ssh -L 5556:127.0.0.1:5556 <dex server>`. Then visit the URL and enter the resulting verification code into the terminal.**
 
 Sign the container with our local certificate:
 
@@ -508,7 +505,7 @@ SIGSTORE_CT_LOG_PUBLIC_KEY_FILE=$HOME/sigstore-local/ct_public.pem \
       localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9
 ```
 
-Successful output will look like:
+Successful output will look like this:
 
 ```
 **Warning** Using a non-standard public key for verifying SCT: /home/t/sigstore-local/ct_public.pem
@@ -539,7 +536,7 @@ If you have rebooted and wish to bring the local sigstore stack up again, you ca
 sh launch-sigstore.sh
 ```
 
-### 4.2: Unistalling the local sigstore installation
+### 4.2: Uninstalling the local sigstore installation
 
 After killing any daemons started:
 
