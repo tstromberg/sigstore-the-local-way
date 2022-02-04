@@ -16,6 +16,8 @@ This tutorial involves launching several foreground services, so using a termina
 
 As a bonus, this repository includes a [launch script](launch-sigstore.sh) to relaunch the sigstore stack using tmux any time after the completion of the tutorial.
 
+If you run into an error, be sure to check the Appendix for a list of errors you might bump into. 
+
 ## Installation of non-sigstore prerequisites
 
 Installing the full-stack requires the Go programming language, a SQL database, and a handful of security tools:
@@ -171,7 +173,7 @@ $HOME/go/bin/createtree --admin_server localhost:8091 | tee $HOME/sigstore-local
 
 ### 2.3: Installing Rekor
 
-Rekor is sigstore's certificate transparency backend. Install it from source:
+The Rekor project provides a restful API based server for validation and a transparency log for storage. Install it from source:
 
 ```shell
 cd $HOME/sigstore-local/src/rekor
@@ -235,9 +237,7 @@ The following checks were performed on each of these signatures:
 [{"critical":{"identity":{"docker-reference":"localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9"},"image":{"docker-manifest-digest":"sha256:35b25714b56211d548b97a858a1485b254228fe9889607246e96ed03ed77017d"},"type":"cosign container image signature"},"optional":{"Bundle":{"SignedEntryTimestamp":"MEUCIGhbOHcduQOWrsL8CaAHeSB1pQXintGyo2OlEs7yflWcAiEA2Wk/WeT5GOpYkpV2bZzaZBEt925W00VOAE/aHi7yoIY=","Payload":{"body":"eyJhcGlWZXJzaW9uIjoiMC4wLjEiLCJraW5kIjoiaGFzaGVkcmVrb3JkIiwic3BlYyI6eyJkYXRhIjp7Imhhc2giOnsiYWxnb3JpdGhtIjoic2hhMjU2IiwidmFsdWUiOiI4Yzg1YjNhMjQ5Y2I1MjNlYTNiYjRiM2RiN2RmMTc0Zjc0ZjI0NGJiNmJmN2QyNjI3ZjJjNTZlNmYzZjliZmQzIn19LCJzaWduYXR1cmUiOnsiY29udGVudCI6Ik1FWUNJUUM4NXZrMEoxQ0dCdFVGMEtBVXpCOHRCWG10TzkreFNQS2NldG4wYm52eGVnSWhBT0lnWG9Xa3FoR2FiWm8xRFFUem5GaTFKRU5vL0VvSDg5bGh0OWthZWNpOCIsInB1YmxpY0tleSI6eyJjb250ZW50IjoiTFMwdExTMUNSVWRKVGlCUVZVSk1TVU1nUzBWWkxTMHRMUzBLVFVacmQwVjNXVWhMYjFwSmVtb3dRMEZSV1VsTGIxcEplbW93UkVGUlkwUlJaMEZGY0d0WWFITTNSWGxoY1V0V1VsbFdMMkZ3Y0RsVE4ybGtNRTFxZVFwaU5sTXZiMnhIWkhoeWJuSnVaakZ3VlU5eFVFbFRVVzlWYVZseE1WTjRURUpvVEVWaFp6aHJTSFV2WTA1dlpUQllXR2g0VURGdGRHcDNQVDBLTFMwdExTMUZUa1FnVUZWQ1RFbERJRXRGV1MwdExTMHRDZz09In19fX0=","integratedTime":1643917737,"logIndex":1,"logID":"4d2e4729bc008d76b4962364d19fe3f7a7b7bd58627bbafa0c19d9eac9797291"}}}}]
 ```
 
-
-
-Feel free to take an ice cream break if you got this far. You earned it!
+Gotake an ice cream break if you got this far. You earned it!
 
 ## 3.0: Keyless signing with Fulcio (EXPERIMENTAL)
 
@@ -546,7 +546,38 @@ sudo mysql -u root -e "DROP DATABASE IF EXISTS test;"
 rm -Rf $HOME/sigstore-local
 ```
 
-### 4.3: Where to go from here?
+### 4.3: Errors
+
+cosign:
+* `NAME_UNKNOWN: Unknown name`: The package name you are trying to sign does not appear in the registry. Re-run the `ko publish` step and confirm you are signing the correct package name. 
+
+ct_server:
+* `Failed to read config: failed to parse LogConfigSet from "/Users/t/sigstore-local/ct.cfg" as text protobuf (proto: (line 3:3): invalid value for int64 type: prefix)`: Confirm that the `log_id` field is set properly in `$HOME/sigstore-local/ct.cfg`. It's probably empty!
+* `failed to load private key: pemfile: empty password for file`: Check the password field in `$HOME/sigstore-local/ct.cfg`. It's probably empty!
+* `x509: decryption password incorrect`: The password in `$HOME/sigstore-local/ct.cfg` doesn't match what's on disk. Re-run step 3.4.
+* `Server exited: listen tcp 0.0.0.0:6105: bind: address already in use`: There is already a ct_server process running. Find it using `lsof -i TCP:6105`, then kill it.
+* `Failed to retrieve STH for sigstore (30): rpc error: code = NotFound desc = tree ### not found`: The `log_id` field in `$HOME/sigstore-local/ct.cfg` does not match what is in the MySQL database. Re-run the `createtree` command and place the resulting ID number in `ct.cfg`.
+
+fulcio:
+* `could not open config file: config/crypto11.conf`: Check that `$HOME/sigstore-local` is your current working directory. If so, you missed part of 3.3.
+* `no key pair was found matching label "PKCS11CA"`: SoftHSM does not know about your CA certificate. Re-run the pkcs11 command in step 3.3.
+* `getting signer: getting key from Fulcio: retrieving cert: `: TBD
+
+github:
+* `404 Page Not Found`: The GitHub clientID or clientSecret field in `$HOME/sigstore-local/dex-config.yaml` is incorrect. Run through step 3.5 again.
+
+openssl:
+* `unable to write private key | CRYPTO_internal:result too small`: You pressed enter at a prompt that requires a password containing at least 4 characters.
+
+pkcs11-tool:
+* `No slots.`: You may have forgotten to set a value for $PKCS11_MOD.
+*  `Failed to load pkcs11 module`: The path specified in `--module` is incorrect. Check the output of `file $PKCS11_MOD`
+
+rekor-cli:
+* `Post "http://localhost:3000/api/v1/log/entries": dial tcp [::1]:3000: connect: connection refused`: Rekor isn't running.
+* `createLogEntry default  &{Code:500 Message:Unexpected result from transparency log} `: Check that you only have one `rekor-server` process running. If so, try restarting it.
+
+### 4.4: Where to go from here?
 
 * [Official Sigstore Documentation](https://docs.sigstore.dev/): Everything you ever wanted to know about Sigstore
 * [sigstore-scaffolding](https://github.com/vaikas/sigstore-scaffolding): Setup sigstore using Kubernetes
