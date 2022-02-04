@@ -12,9 +12,9 @@ This tutorial explores three levels of signing & verification that sigstore make
 
 ## Environment
 
-This tutorial involves launching several foreground services, so you are best off using a terminal multiplexer such as [tmux](https://github.com/tmux/tmux/wiki) or [screen](https://www.gnu.org/software/screen/).
+This tutorial involves launching several foreground services, so using a terminal multiplexer such as [tmux](https://github.com/tmux/tmux/wiki) or [screen](https://www.gnu.org/software/screen/) is highly recommended.
 
-As a bonus, this repository includes a [launch script](launch-sigstore.sh) to relaunch the sigstore stack at any time after the completion of the tutorial.
+As a bonus, this repository includes a [launch script](launch-sigstore.sh) to relaunch the sigstore stack using tmux any time after the completion of the tutorial.
 
 ## Installation of non-sigstore prerequisites
 
@@ -252,7 +252,7 @@ cd fulcio
 go install .
 ```
 
-### 3.1: Configure SoftHSM
+### 3.2: Configure SoftHSM
 
 SoftHSM implements a cryptographic store accessible through a PKCS #11 interface. You can use it to explore PKCS #11 without having a Hardware Security Module. For this demo, we will configure sigstore to reference tokens in $HOME/sigstore-local/tokens:
 
@@ -275,7 +275,7 @@ softhsm2-util --init-token --slot 0 --label fulcio
 
 Set the pin to `2324`, and then save the resulting configuration file for later use by fulcio:
 
-### 3.2: Create a CA certificate with OpenSC
+### 3.3: Create a CA certificate with OpenSC
 
 Configure OpenSC:
 
@@ -319,7 +319,7 @@ SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio createca \
   --out ca-root.pem
 ```
 
-## 3.3: Install the Certificate Transparency Frontend
+## 3.4: Install the Certificate Transparency Frontend
 
 ```shell
 go install github.com/google/certificate-transparency-go/trillian/ctfe/ct_server@latest
@@ -381,7 +381,7 @@ I0128 11:42:16.401794   65425 main.go:121] **** CT HTTP Server Starting ****
 I0128 11:42:16.511090   65425 instance.go:85] Start internal get-sth operations on sigstore (8494167753837750461)
 ```
 
-### 3.4: Installing Dex for OpenID authentication
+### 3.5: Installing Dex for OpenID authentication
 
 Dex is a federated OpenID Connect Provider, which connects OpenID identities from multiple providers to drive authentication for other apps. Dex will serve as your OIDC issuer. Unfortunately, Dex doesn't support `go install`, so you need to build it manually:
 
@@ -458,7 +458,7 @@ Start dex:
 $HOME/go/bin/dex serve $HOME/sigstore-local/dex-config.yaml
 ```
 
-### 3.5: Setting up Fulcio for key-less signatures
+### 3.6: Setting up Fulcio for key-less signatures
 
 Populate the Fulcio configuration file:
 
@@ -489,7 +489,7 @@ If it is working, you will see a message similar to:
 
 `2022-01-27T16:35:11.359-0800	INFO	app/serve.go:173	127.0.0.1:5000`
 
-### 3.5: Local Keyless Signing
+### 3.7: Local Keyless Signing
 
 Now let's try some experimental cosign features: Integration with the Rekor transparency log and keyless signatures using the Fulcio CA. Fulcio will instead rely on a combination of certificates stored in SoftHSM and the OIDC tokens provided by Dex and Github:
 
