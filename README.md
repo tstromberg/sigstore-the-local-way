@@ -47,7 +47,7 @@ While sigstore can use any Container Registry, in the interest of keeping things
 go install github.com/google/go-containerregistry/cmd/registry@latest
 ```
 
-This command will start a local registry - emitting no output until artifacts are stored:
+This command will start a local registry - emitting no output until artifacts are stored (you may want to run this in tmux or screen as its one of the foreground services):
 
 ```shell
 $HOME/go/bin/registry
