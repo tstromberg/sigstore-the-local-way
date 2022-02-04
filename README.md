@@ -2,12 +2,9 @@
 
 This is a tutorial for setting up sigstore infrastructure locally, with a focus on learning what each component is and how it functions. If all goes well, you can compelete this tutorial in about 15 minutes!
 
-This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way), but differs from it a bit:
+This tutorial is based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way), and greatly simplifies it for a local usage without skipping any of the sigstore-specific steps.For example, this tutorial omits any steps relating to provisioning services via the Google Cloud Platform, DNS updates, HAProxy, or Certbot. This new tutorial has also modified for cross-platform use, and was developed intiially using [OpenBSD](https://www.openbsd.org/) and (fish)[https://fishshell.com/].
 
-* Simpler: Skips steps unnecessary for local use (provisioning nodes, DNS, HAProxy, Certbot)
-* Cross-platform: Initially developed on [OpenBSD](https://openbsd.org/), and compatible with most UNIX-like operating systems and shells
-
-Similar to [Dante's Inferno](https://en.wikipedia.org/wiki/Inferno_(Dante)), this tutorial adventures through the 3-circles of sigstore:
+This tutorial explores 3 levels of signing & verification that sigstore makes available, adding new dependencies each time:
 
 1. Signing and verifying a container using a local OCI registry
 2. Signing and verifying a container using a local OCI registry + Rekor
@@ -15,7 +12,10 @@ Similar to [Dante's Inferno](https://en.wikipedia.org/wiki/Inferno_(Dante)), thi
 
 ## Environment
 
-This tutorial involves launching several foreground services, so I highly recommend a terminal multiplexer such as [tmux](https://github.com/tmux/tmux/wiki) or [screen](https://www.gnu.org/software/screen/). For your convenience, this repository includes a [script](launch-sigstore.sh) to relaunch the daemons within a tmux session at the completion of the tutorial.
+This tutorial involves launching several foreground services, so it is highly recommended that you use a 
+a terminal multiplexer such as [tmux](https://github.com/tmux/tmux/wiki) or [screen](https://www.gnu.org/software/screen/).
+
+As an added bonus, this repository includes a [launch script](launch-sigstore.sh) to relaunch the sigstore stack at any time once the tutorial has been completed. 
 
 ## Installation of non-sigstore prerequisites
 
