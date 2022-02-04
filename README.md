@@ -6,9 +6,9 @@ This tutorial is heavily based on [Sigstore the Hard Way](https://github.com/luk
 
 This tutorial explores three levels of signing & verification that sigstore makes available, adding new dependencies each time:
 
-1. Signing and verifying a container using a local OCI registry
-2. Signing and verifying a container using a local OCI registry + Rekor
-3. Keyless signing and verifying a container using a local OCI registry + Rekor + Fulcio
+1. Signing a container against a local OCI registry
+2. Signing a container against a local OCI registry and the Rekor transparency log
+2. Keyless signing a container against a local OCI registry and the Rekor transparency log
 
 ## Environment
 
@@ -41,19 +41,18 @@ If your Go version is too old, uninstall it and install the latest from https://
 
 ## Level 1: Basic signing against a local registry
 
+
+
 ### 1.1: Starting a local registry
 
-While sigstore can use any Container Registry, in the interest of keeping things local, we'll install a basic one for testing:
+sigstore can sign cagainst any container registry. In the interest of keeping things local, we'll run a local registry. You may want to run this in tmux or screen as it is one of the many foreground services you will start:
 
 ```shell
 go install github.com/google/go-containerregistry/cmd/registry@latest
-```
-
-This command will start a local registry - emitting no output until artifacts are stored (you may want to run this in tmux or screen as its one of the foreground services):
-
-```shell
 $HOME/go/bin/registry
 ```
+
+If it's successful, the registry command will quietly hang until an incoming request arrives. Start a new terminal window or tab and let's move on!
 
 ### 1.2: Pushing an unsigned image to the local registry
 
@@ -93,7 +92,7 @@ cd $HOME/sigstore-local
 $HOME/go/bin/cosign generate-key-pair
 ```
 
-Sign the container we published to the local registry:
+Sign the container we just published: 
 
 ```shell
 $HOME/go/bin/cosign sign --key cosign.key localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9:latest
