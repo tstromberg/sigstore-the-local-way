@@ -1,8 +1,8 @@
 # sigstore-the-local-way
 
-The sigstore-the-local-way tutorial will teach you how to setup sigstore locally and can be completed in about 15 minutes.
+The sigstore-the-local-way tutorial will teach you how to run a local [sigstore](https://www.sigstore.dev/) stack and use it to sign and verify container signatures. It can be completed in about 15 minutes.
 
-It's heavily based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way), though simplified for local use without skipping any of the sigstore-specific steps. For example, this tutorial omits actions relating to provisioning services via the Google Cloud Platform, DNS updates, HAProxy, or Certbot. This new tutorial has also been modified for cross-platform use and was developed using [OpenBSD](https://www.openbsd.org/) and [fish](https://fishshell.com/).
+This tutorial is heavily based on [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way), though simplified for local use without skipping any of the sigstore-specific steps. For example, this tutorial omits actions relating to provisioning services via the Google Cloud Platform, DNS updates, HAProxy, or Certbot. This new tutorial has also been modified for cross-platform use and was developed using [OpenBSD](https://www.openbsd.org/) and [fish](https://fishshell.com/).
 
 This tutorial explores three levels of signing & verification that sigstore makes available, adding new dependencies each time:
 
