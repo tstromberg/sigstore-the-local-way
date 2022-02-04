@@ -47,14 +47,11 @@ if tmux has-session -t "=$SESSION" 2>/dev/null; then
 fi
 
 
-tmux new-window -d -t "=$SESSION" -n registry
+tmux new-session -d -s "$SESSION" -n registry
 tmux send-keys -t "=$SESSION:=registry" "$REGISTRY" Enter
 
-tmux new-session -d -s $SESSION -n "trillian_log"
+tmux new-window -d -t $SESSION -n "trillian_log"
 tmux send-keys -t "=$SESSION:=trillian_log" "$TRILLIAN_LOG" Enter
-
-# small delay for the trillian_log server to listen
-sleep 1
 
 tmux new-window -d -t "=$SESSION" -n trillian_sign
 tmux send-keys -t "=$SESSION:=trillian_sign" "$TRILLIAN_SIGN" Enter
