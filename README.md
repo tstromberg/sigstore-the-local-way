@@ -241,9 +241,13 @@ Gotake an ice cream break if you got this far. You earned it!
 
 ## 3.0: Keyless signing with Fulcio (EXPERIMENTAL)
 
+![Fulcio signing diagram](images/sigstore-fulcio.svg)
+
 ### 3.1: Install Fulcio
 
-fulcio is a free Root-CA for code signing certs, issuing certificates based on an OIDC email address. To install it from source:
+Fulcio is a service for dynamically generating code-signing certificates based on authenticated [OpenID Connect](https://openid.net/connect/) identities. This allows for key-less signing from authenticated service accounts or humans.
+
+For this demo, we will use Fulcio to dynamically create code signing certificates based on GitHub identities.
 
 ```shell
 cd $HOME/sigstore-local/src
@@ -320,6 +324,8 @@ SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio createca \
 ```
 
 ## 3.4: Install the Certificate Transparency Frontend
+
+The `ct_server` is an [RFC6962-compliant](https://datatracker.ietf.org/doc/html/rfc6962) certificate transparency log that stores only the code-signing certificates issued by Fulcio.
 
 ```shell
 go install github.com/google/certificate-transparency-go/trillian/ctfe/ct_server@latest
