@@ -24,6 +24,7 @@ Installing the full-stack requires the Go programming language, a SQL database, 
 * Debian|Ubuntu: `sudo apt-get install -y mariadb-server git softhsm2 opensc`
 * Fedora: `sudo dnf install mariadb-server git go softhsm opensc`
 * FreeBSD: `doas pkg install mariadb105-server git softhsm2 opensc`
+* Gentoo: `sudo emerge mariadb git go softhsm opensc`
 * macOS: `brew install mariadb go softhsm opensc`
 * OpenBSD: `doas pkg_add mariadb-server git go softhsm2 opensc`
 * NetBSD: `doas pkgin install mariadb-server git go softhsm2 opensc`
