@@ -545,3 +545,10 @@ After killing any daemons started:
 sudo mysql -u root -e "DROP DATABASE IF EXISTS test;"
 rm -Rf $HOME/sigstore-local
 ```
+
+### 4.3: Where to go from here?
+
+* [Official Sigstore Documentation](https://docs.sigstore.dev/): Everything you ever wanted to know about Sigstore
+* [sigstore-scaffolding](https://github.com/vaikas/sigstore-scaffolding): Setup sigstore using Kubernetes
+* [Sigstore the Hard Way](https://github.com/lukehinds/sigstore-the-hard-way): Setup sigstore using Google Compute Engine
+* [Bring your own TUF](https://blog.sigstore.dev/sigstore-bring-your-own-stuf-with-tuf-40febfd2badd): Setup your own TUF root of trust 
