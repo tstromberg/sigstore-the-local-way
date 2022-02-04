@@ -41,7 +41,7 @@ If your Go version is too old, uninstall it and install the latest from https://
 
 ## Level 1: Basic signing against a local registry
 
-
+![Basic signing diagram](images/sigstore-basic.svg)
 
 ### 1.1: Starting a local registry
 
