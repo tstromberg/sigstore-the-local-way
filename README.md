@@ -507,7 +507,7 @@ Sign the container with our local certificate:
 SIGSTORE_CT_LOG_PUBLIC_KEY_FILE=$HOME/sigstore-local/ct_public.pem \
   COSIGN_EXPERIMENTAL=1 $HOME/go/bin/cosign sign \
       --oidc-issuer=http://localhost:5556 \
-      --fulcio-url=http://localhost:5000 \
+      --fulcio-url=http://127.0.0.1:5000 \
       --rekor-url=http://localhost:3000 \
       localhost:1338/demo/rekor-cli-e3df3bc7cfcbe584a2639931193267e9
 ```
