@@ -277,7 +277,7 @@ Create your first HSM token:
 softhsm2-util --init-token --slot 0 --label fulcio
 ```
 
-Set the pin to `2324`, and then save the resulting configuration file for later use by fulcio:
+For this tutorial, set both the SO (Security Officer) and User PIN to `2324`.
 
 ### 3.3: Create a CA certificate with OpenSC
 
@@ -288,7 +288,7 @@ Configure OpenSC:
 * Fedora: `export PKCS11_MOD=/usr/lib64/libsofthsm2.so`
 * macOS: `export PKCS11_MOD=$(brew --prefix softhsm)/lib/softhsm/libsofthsm2.so`
 
-Write out a configuration file to be used by the pkcs11 crypto library:
+Create a configuration file for the pkcs11 crypto library using the user PIN code you specified in the previous step:
 
 ```shell
 mkdir -p $HOME/sigstore-local/config
