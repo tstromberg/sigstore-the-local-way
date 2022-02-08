@@ -132,7 +132,7 @@ While Sigstore can use multiple database backends, this tutorial uses MariaDB. O
 * Debian|Ubuntu: `sudo mysql_secure_installation`
 * Fedora: `sudo systemctl start mariadb && sudo mysql_secure_installation`
 * FreeBSD: `sudo sudo service mysql-server start && sudo mysql_secure_installation`
-* macOS: `sudo brew services start mariadb && sudo mysql_secure_installation`
+* macOS: `brew services start mariadb && sudo mysql_secure_installation`
 * OpenBSD: `doas mysql_install_db && doas rcctl start mysqld && doas mysql_secure_installation`
 
 During the secure script, I recommend skipping the password change, but answering "YES" to everything else. Once complete, create the database tables which Trillian will need:
