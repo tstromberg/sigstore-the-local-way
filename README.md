@@ -152,7 +152,7 @@ go install github.com/google/trillian/cmd/trillian_log_signer@latest
 go install github.com/google/trillian/cmd/createtree@latest
 ```
 
-Start the [log_server](https://rgdd.medium.com/observations-from-a-trillian-play-date-451bccc0aac6), which will provides Trillian API to both Rekor and the Certificate Transparency frontends (also referred to as personalities):
+Start the [log_server](https://rgdd.medium.com/observations-from-a-trillian-play-date-451bccc0aac6), which will provide a Trillian API to both Rekor and the Certificate Transparency frontends (also referred to as personalities):
 
 ```shell
 $HOME/go/bin/trillian_log_server -http_endpoint=localhost:8090 -rpc_endpoint=localhost:8091 --logtostderr
