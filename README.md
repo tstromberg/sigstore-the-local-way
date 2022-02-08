@@ -43,6 +43,8 @@ If your Go version is too old, uninstall it and install the latest from https://
 
 ![Basic signing diagram](images/sigstore-basic.svg)
 
+We'll run through the steps in the above rectangles, starting from left (ko) to right (cosign verify).
+
 ### 1.1: Starting a local registry
 
 sigstore can sign against any container registry. In the interest of keeping things local, we'll run a local registry. You may want to run this in tmux or screen as it is one of the many foreground services you will start:
