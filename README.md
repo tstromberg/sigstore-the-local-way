@@ -277,7 +277,7 @@ Create your first HSM token:
 softhsm2-util --init-token --slot 0 --label fulcio
 ```
 
-For the purpose of this tutorial, set both the SO (Security Officer) and User PIN to `2324`.
+For this tutorial, set both the SO (Security Officer) and User PIN to `2324`.
 
 ### 3.3: Create a CA certificate with OpenSC
 
