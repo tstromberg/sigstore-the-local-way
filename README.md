@@ -45,7 +45,7 @@ If your Go version is too old, uninstall it and install the latest from https://
 
 ### 1.1: Starting a local registry
 
-sigstore can sign cagainst any container registry. In the interest of keeping things local, we'll run a local registry. You may want to run this in tmux or screen as it is one of the many foreground services you will start:
+sigstore can sign against any container registry. In the interest of keeping things local, we'll run a local registry. You may want to run this in tmux or screen as it is one of the many foreground services you will start:
 
 ```shell
 go install github.com/google/go-containerregistry/cmd/registry@latest
