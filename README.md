@@ -337,17 +337,12 @@ Next we need to setup a private key. I'll use 2324 again, but you can use anythi
 
 
 ```shell
+export PASS=<password entered>
 cd $HOME/sigstore-local
 openssl ecparam -genkey -name prime256v1 -noout -out ct_unenc.key
-openssl ec -in ct_unenc.key -out ct_private.pem -des
-openssl ec -in ct_unenc.key -out ct_public.pem -pubout -des
+openssl ec -aes256 -in ct_unenc.key -out ct_private.pem -passout pass:$PASS
+openssl ec -aes256 -in ct_unenc.key -out ct_public.pem -passout pass:$PASS
 rm ct_unenc.key
-```
-
-Store the password as a shell variable:
-
-```shell
-export PASS=<password entered>
 ```
 
 Look up the Trillian log ID we previously created, and set the LOG_ID variable to the resulting value:
