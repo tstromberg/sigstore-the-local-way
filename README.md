@@ -490,7 +490,7 @@ Start Fulcio:
 cd $HOME/sigstore-local
 SOFTHSM2_CONF=$HOME/sigstore-local/softhsm2.conf $HOME/go/bin/fulcio serve \
   --config-path=config/fulcio.json --ca=pkcs11ca --hsm-caroot-id=1 --ct-log-url=http://localhost:6105/sigstore \
-  --host=127.0.0.1 --port=5000
+  --host=127.0.0.1 --port=5000 --metrics-port=2113
 ```
 
 If it is working, you will see a message similar to:
@@ -570,6 +570,7 @@ fulcio:
 * `could not open config file: config/crypto11.conf`: Check that `$HOME/sigstore-local` is your current working directory. If so, you missed part of 3.3.
 * `no key pair was found matching label "PKCS11CA"`: SoftHSM does not know about your CA certificate. Re-run the pkcs11 command in step 3.3.
 * `getting signer: getting key from Fulcio: retrieving cert: `: TBD
+*  `listen tcp :2112: bind: address already in use`: Another process is already using the default metrics publishing port. Try again with `--metrics-port=2113` (or any other available port).
 
 github:
 * `404 Page Not Found`: The GitHub clientID or clientSecret field in `$HOME/sigstore-local/dex-config.yaml` is incorrect. Run through step 3.5 again.
