@@ -341,7 +341,7 @@ export PASS=<password entered>
 cd $HOME/sigstore-local
 openssl ecparam -genkey -name prime256v1 -noout -out ct_unenc.key
 openssl ec -aes256 -in ct_unenc.key -out ct_private.pem -passout pass:$PASS
-openssl ec -aes256 -in ct_unenc.key -out ct_public.pem -passout pass:$PASS
+openssl ec -aes256 -in ct_unenc.key -out ct_public.pem -pubout -passout pass:$PASS
 rm ct_unenc.key
 ```
 
