@@ -208,6 +208,17 @@ curl -s http://127.0.0.1:3000/api/v1/log/entries/d2f305428d7c222d7b77f56453dd4b6
 
 ### 2.4: Keyed verifiable signing with Cosign & Rekor
 
+Get the publicKey of the Rekor instance. It is needed in the case we are interacting with a local Rekor instance
+
+```shell
+curl http://localhost:3000/api/v1/log/publicKey > $HOME/sigstore-local/rekor.pem
+```
+
+Export the Rekor public key for Cosign
+```shell
+export SIGSTORE_REKOR_PUBLIC_KEY=$HOME/sigstore-local/rekor.pem
+```
+
 With Rekor setup, we can now sign and upload the signature for our image:
 
 ```shell
